@@ -358,7 +358,12 @@ tr:hover td{background:rgba(196,115,90,.04)}
       </div>
       <div class="form-group">
         <label id="uQtyLabel">数量</label>
-        <input type="number" id="uQty" value="1" min="1">
+        <div style="display:flex;gap:8px;align-items:center">
+          <input type="number" id="uQty" value="1" min="1" style="flex:1">
+          <select id="uQtyUnit" style="min-width:70px;padding:10px 8px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px;background:var(--bg)">
+            <option value="main">盒</option>
+          </select>
+        </div>
       </div>
       <div class="form-group full">
         <label>备注</label>
@@ -990,23 +995,20 @@ function computeQty(pid) {
   const p=db.products.find(x=>x.id===pid);
   const cfg=getCategoryConfig(p?.category||'');
   const hasSubUnit=!!cfg.subUnit;
-
-  // Total arrived in main units (盒)
   const arrived=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').reduce((s,r)=>s+r.qty,0);
 
   if(!hasSubUnit){
-    // No subUnit: opened bottles (start/open) each reduce by qty
     const opened=db.usages.filter(u=>u.productId===pid&&(u.type==='start'||u.type==='open')).reduce((s,u)=>s+u.qty,0);
     return Math.max(0,arrived-opened);
   } else {
-    // Has subUnit (e.g. 面膜): finish events reduce stock
-    // Each finish usage qty is in subUnits (片); convert to main units (盒) using batch's subUnitQty
+    // All finish usages store qty in subUnits; convert back to main units
     const finishUsages=db.usages.filter(u=>u.productId===pid&&u.type==='finish');
     let usedMainUnits=0;
     finishUsages.forEach(u=>{
       const batchR=u.batchId?db.restocks.find(r=>r.id===u.batchId):null;
       const subPerMain=batchR?.subUnitQty||1;
-      usedMainUnits+=u.qty/subPerMain; // e.g. 1片 ÷ 5片/盒 = 0.2盒
+      // u.qty is in subUnits (片)
+      usedMainUnits+=u.qty/subPerMain;
     });
     return Math.max(0,arrived-usedMainUnits);
   }
@@ -1519,8 +1521,18 @@ function fillUsageInfo() {
   if(!pid){batchSel.innerHTML='<option value="">— 先选产品 —</option>';updateBatchExpiry();document.getElementById('uQtyLabel').textContent='数量';return;}
   const p=db.products.find(x=>x.id===pid);
   const cfg=getCategoryConfig(p?.category||'');
-  const unit=cfg.subUnit||cfg.unit||'件';
-  document.getElementById('uQtyLabel').textContent=`数量（${unit}）`;
+  const unit=cfg.unit||'件';
+  const subUnit=cfg.subUnit||'';
+  // Update qty label and unit selector
+  document.getElementById('uQtyLabel').textContent='数量';
+  const unitSel=document.getElementById('uQtyUnit');
+  if(subUnit){
+    unitSel.innerHTML=`<option value="sub">${subUnit}</option><option value="main">${unit}</option>`;
+    unitSel.value='sub'; // default to subUnit for subUnit categories
+  } else {
+    unitSel.innerHTML=`<option value="main">${unit}</option>`;
+    unitSel.value='main';
+  }
   updateFinishLabel(cfg);
   const batches=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').sort((a,b)=>new Date(a.date)-new Date(b.date));
   batchSel.innerHTML='<option value="">— 不指定批次 —</option>'+batches.map(r=>{
@@ -1565,12 +1577,35 @@ function addUsage() {
   const pid=document.getElementById('uProduct').value;
   if(!pid){toast('⚠️ 请选择产品');return;}
   const type=document.getElementById('uType').value;
-  const qty=parseInt(document.getElementById('uQty').value)||1;
+  const qtyRaw=parseInt(document.getElementById('uQty').value)||1;
+  const qtyUnitSel=document.getElementById('uQtyUnit').value; // 'main' or 'sub'
   const batchId=document.getElementById('uBatch').value;
   const batchR=batchId?db.restocks.find(x=>x.id===batchId):null;
+  const prod2=db.products.find(x=>x.id===pid);
+  const cfg2=getCategoryConfig(prod2?.category||'');
+
+  // Convert qty to subUnit if needed; always store in subUnits for subUnit categories
+  // For non-subUnit categories, store in main units
+  let qtyInSubUnit=qtyRaw;
+  let qtyInMain=qtyRaw;
+  if(cfg2.subUnit){
+    const subPerMain=batchR?.subUnitQty||1;
+    if(qtyUnitSel==='main'){
+      qtyInSubUnit=qtyRaw*subPerMain;
+      qtyInMain=qtyRaw;
+    } else {
+      // sub unit selected
+      qtyInSubUnit=qtyRaw;
+      qtyInMain=qtyRaw/subPerMain;
+    }
+  }
+  // Store qty in subUnits for subUnit categories, main units otherwise
+  const qty=cfg2.subUnit?qtyInSubUnit:qtyInMain;
+
   const useUntil=document.getElementById('uUseUntil').value;
   const linkedOpenId=document.getElementById('uLinkedOpenId').value||null;
   const u={id:uuid(),productId:pid,type,date:document.getElementById('uDate').value,qty,
+    qtyUnit:cfg2.subUnit?'sub':'main',
     note:document.getElementById('uNote').value.trim(),
     batchId:batchId||null,
     batchCode:batchR?.batchCode||null,
@@ -1582,18 +1617,30 @@ function addUsage() {
   if(batchR){
     if(type==='start'||type==='open') batchR.batchStatus='in_use';
     if(type==='finish'){
-      batchR.batchStatus='finished';
+      if(cfg2.subUnit){
+        // For subUnit: mark batch finished only when all subUnits are used
+        const totalSub=(batchR.qty||1)*(batchR.subUnitQty||1);
+        const usedSub=db.usages.filter(u2=>u2.batchId===batchId&&u2.type==='finish').reduce((s,u2)=>s+u2.qty,0);
+        if(usedSub>=totalSub){
+          batchR.batchStatus='finished';
+          if(useUntil) batchR.finishedDate=useUntil;
+          else batchR.finishedDate=document.getElementById('uDate').value;
+        } else {
+          batchR.batchStatus='in_use'; // still being used
+        }
+      } else {
+        batchR.batchStatus='finished';
+        if(useUntil) batchR.finishedDate=useUntil;
+        else batchR.finishedDate=document.getElementById('uDate').value;
+      }
       batchR.qtyRemain=0;
-      if(useUntil) batchR.finishedDate=useUntil;
-      else batchR.finishedDate=document.getElementById('uDate').value;
     }
   }
   saveLocal();autoSync();render();
   if(document.getElementById('detailModal').classList.contains('open')) openDetail(pid);
-  const prod2=db.products.find(x=>x.id===pid);
-  const cfg2=getCategoryConfig(prod2?.category||'');
   const finishLbl=`用完一${cfg2.subUnit||cfg2.unit||'瓶'}`;
-  toast(`✅ 已记录：${type==='start'?'开始使用':type==='open'?'开新瓶':finishLbl}${batchR?' ('+batchR.batchCode+')':''}`);
+  const unitShown=cfg2.subUnit?(qtyUnitSel==='sub'?`${qtyRaw}${cfg2.subUnit}`:`${qtyRaw}${cfg2.unit}`):qtyRaw>1?`${qtyRaw}${cfg2.unit||'件'}`:'';
+  toast(`✅ 已记录：${type==='start'?'开始使用':type==='open'?`开新${cfg2.unit||'瓶'}`:finishLbl}${unitShown?' '+unitShown:''}${batchR?' ('+batchR.batchCode+')':''}`);
   document.getElementById('uProduct').value='';
   document.getElementById('uBatch').innerHTML='<option value="">— 先选产品 —</option>';
   document.getElementById('uBatchExpiryInfo').style.display='none';
@@ -1601,6 +1648,8 @@ function addUsage() {
   document.getElementById('uUseUntil').value='';
   document.getElementById('uLinkedOpenId').value='';
   document.getElementById('uQty').value=1;
+  document.getElementById('uQtyUnit').innerHTML='<option value="main">件</option>';
+  document.getElementById('uQtyUnit').value='main';
 }
 function renderUsage() {
   const q=document.getElementById('uSearch').value.toLowerCase();
