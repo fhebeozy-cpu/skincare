@@ -2274,14 +2274,45 @@ function renderCategoryList(){
   if(!cats.length){list.innerHTML='';empty.style.display='block';return;}
   empty.style.display='none';
   list.innerHTML=cats.map(c=>`
-    <div class="platform-list-item">
-      <div style="flex:1">
+    <div class="platform-list-item" id="catRow_${c.name}">
+      <div style="flex:1" id="catDisplay_${c.name}">
         <span class="platform-list-name">🏷️ ${c.name}</span>
         <span style="font-size:12px;color:var(--text3);margin-left:10px">主单位：${c.unit||'—'}${c.subUnit?' · 子单位：'+c.subUnit:' · 无子单位'}</span>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteCategoryFromSettings(this.getAttribute('data-name'))" data-name="${c.name}">🗑 删除</button>
+      <div id="catEditForm_${c.name}" style="display:none;flex:1;display:none;gap:8px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="catEditUnit_${c.name}" value="${c.unit||''}" placeholder="主单位" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px">
+        <input type="text" id="catEditSubUnit_${c.name}" value="${c.subUnit||''}" placeholder="子单位（可选）" style="width:110px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--rs);font-size:13px">
+        <button class="btn btn-primary btn-sm" onclick="saveCategoryUnit('${c.name}')">💾 保存</button>
+        <button class="btn btn-secondary btn-sm" onclick="cancelCategoryEdit('${c.name}')">取消</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-secondary btn-sm" id="catEditBtn_${c.name}" onclick="openCategoryEdit('${c.name}')">✏️ 改单位</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCategoryFromSettings(this.getAttribute('data-name'))" data-name="${c.name}">🗑 删除</button>
+      </div>
     </div>
   `).join('');
+}
+
+function openCategoryEdit(name){
+  document.getElementById('catDisplay_'+name).style.display='none';
+  document.getElementById('catEditForm_'+name).style.display='flex';
+  document.getElementById('catEditBtn_'+name).style.display='none';
+}
+function cancelCategoryEdit(name){
+  document.getElementById('catDisplay_'+name).style.display='block';
+  document.getElementById('catEditForm_'+name).style.display='none';
+  document.getElementById('catEditBtn_'+name).style.display='';
+}
+function saveCategoryUnit(name){
+  const unit=document.getElementById('catEditUnit_'+name).value.trim();
+  const subUnit=document.getElementById('catEditSubUnit_'+name).value.trim();
+  const cats=getCategories();
+  const cat=cats.find(c=>c.name===name);
+  if(cat){cat.unit=unit;cat.subUnit=subUnit;}
+  saveCategories(cats);
+  renderCategoryList();
+  populateCategorySelects();
+  toast(`✅ 「${name}」单位已更新`);
 }
 
 function addCategoryManual(){
