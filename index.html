@@ -808,18 +808,23 @@ tr:hover td{background:rgba(196,115,90,.04)}
       <button class="modal-close" onclick="closeModal('editUsageModal')">✕</button>
     </div>
     <input type="hidden" id="editUsageId">
+    <div id="editUsageBatchInfo" style="display:none;padding:9px 13px;background:var(--surface2);border-radius:var(--rs);margin-bottom:12px;font-size:12px;color:var(--text2)"></div>
     <div class="form-grid" style="margin-bottom:4px">
       <div class="form-group">
         <label>事件类型</label>
         <select id="editUsageType" onchange="toggleEditUsageUntil()">
           <option value="start">🟢 开始使用</option>
           <option value="open">🔵 开新瓶</option>
-          <option value="finish">⬜ 用完一瓶</option>
+          <option value="finish" id="editUsageFinishOpt">⬜ 用完一瓶</option>
         </select>
       </div>
       <div class="form-group">
         <label>日期</label>
         <input type="date" id="editUsageDate">
+      </div>
+      <div class="form-group">
+        <label id="editUsageQtyLabel">数量</label>
+        <input type="number" id="editUsageQty" value="1" min="1">
       </div>
       <div class="form-group" id="editUsageUntilGroup" style="display:none">
         <label>实际用完日期</label>
@@ -832,6 +837,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
     </div>
     <div class="btn-row">
       <button class="btn btn-primary" onclick="saveUsageEdit()">💾 保存</button>
+      <button class="btn btn-danger" onclick="deleteUsage(document.getElementById('editUsageId').value);closeModal('editUsageModal')">🗑 删除</button>
       <button class="btn btn-secondary" onclick="closeModal('editUsageModal')">取消</button>
     </div>
   </div>
@@ -1657,15 +1663,51 @@ function quickFinish(openUsageId) {
   toast('📝 请填写用完日期后按「记录」');
 }
 
-function deleteUsage(id){if(!confirm('删除此使用记录？'))return;db.usages=db.usages.filter(u=>u.id!==id);saveLocal();autoSync();render();toast('🗑 已删除');}
+function deleteUsage(id){
+  if(!confirm('删除此使用记录？'))return;
+  const u=db.usages.find(x=>x.id===id);
+  if(!u)return;
+  // If deleting a finish record, revert batch status back to in_use
+  if(u.type==='finish'&&u.batchId){
+    const r=db.restocks.find(x=>x.id===u.batchId);
+    if(r&&r.batchStatus==='finished'){r.batchStatus='in_use';r.finishedDate=null;}
+  }
+  // If deleting a start/open record, revert batch status back to arrived
+  if((u.type==='start'||u.type==='open')&&u.batchId){
+    const r=db.restocks.find(x=>x.id===u.batchId);
+    // Only revert if no other start/open usage links to same batch
+    const otherOpens=db.usages.filter(x=>x.id!==id&&x.batchId===u.batchId&&(x.type==='start'||x.type==='open'));
+    if(r&&r.batchStatus==='in_use'&&otherOpens.length===0) r.batchStatus='arrived';
+  }
+  db.usages=db.usages.filter(x=>x.id!==id);
+  saveLocal();autoSync();render();
+  toast('🗑 使用记录已删除');
+}
 
 function openUsageEdit(id){
   const u=db.usages.find(x=>x.id===id);if(!u)return;
+  const p=db.products.find(x=>x.id===u.productId);
+  const cfg=getCategoryConfig(p?.category||'');
+  const unit=cfg.subUnit||cfg.unit||'瓶';
   document.getElementById('editUsageId').value=id;
   document.getElementById('editUsageType').value=u.type;
   document.getElementById('editUsageDate').value=u.date||'';
   document.getElementById('editUsageNote').value=u.note||'';
   document.getElementById('editUsageUntil').value=u.finishedDate||'';
+  document.getElementById('editUsageQty').value=u.qty||1;
+  document.getElementById('editUsageQtyLabel').textContent=`数量（${unit}）`;
+  // Dynamic finish label
+  const finOpt=document.getElementById('editUsageFinishOpt');
+  if(finOpt) finOpt.textContent=`⬜ 用完一${unit}`;
+  // Batch info
+  const infoEl=document.getElementById('editUsageBatchInfo');
+  if(u.batchCode||u.batchId){
+    const r=u.batchId?db.restocks.find(x=>x.id===u.batchId):null;
+    infoEl.innerHTML=`📦 批次 ${u.batchCode||'—'}${r?.expiry?' · 截止 '+r.expiry:''}${r?.isGift?' · 🎁 赠品':''}`;
+    infoEl.style.display='block';
+  } else {
+    infoEl.style.display='none';
+  }
   toggleEditUsageUntil();
   openModal('editUsageModal');
 }
@@ -1678,6 +1720,7 @@ function saveUsageEdit(){
   const u=db.usages.find(x=>x.id===id);if(!u)return;
   u.type=document.getElementById('editUsageType').value;
   u.date=document.getElementById('editUsageDate').value;
+  u.qty=parseInt(document.getElementById('editUsageQty').value)||1;
   u.note=document.getElementById('editUsageNote').value.trim();
   if(u.type==='finish'){
     const fd=document.getElementById('editUsageUntil').value;
