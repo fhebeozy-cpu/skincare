@@ -157,6 +157,10 @@ tr:hover td{background:rgba(196,115,90,.04)}
 .step-text a{color:var(--accent);font-weight:600}
 .sync-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
 
+/* BUNDLE ITEM ROWS */
+.bundle-item-row{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:end;padding:10px 12px;border:1.5px solid var(--border);border-radius:var(--rs);background:var(--surface);margin-bottom:8px}
+.bundle-item-row select,.bundle-item-row input{padding:7px 10px;font-size:13px}
+
 /* BATCH ROWS (inventory detail) */
 .batch-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:9px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg);margin-bottom:7px;font-size:13px;transition:.15s}
 .batch-row:hover{border-color:var(--accent);background:#fff}
@@ -411,6 +415,12 @@ tr:hover td{background:rgba(196,115,90,.04)}
           <option value="">— 选择产品 —</option>
         </select>
       </div>
+      <div class="form-group" style="display:flex;align-items:flex-end;gap:10px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:13px;color:var(--text2);font-weight:600;text-transform:none;letter-spacing:0;margin-bottom:0">
+          <input type="checkbox" id="bundleMode" onchange="toggleBundleMode()" style="width:16px;height:16px;accent-color:var(--accent)">
+          不同产品捆绑购买
+        </label>
+      </div>
       <div class="form-group">
         <label>进货日期</label>
         <input type="date" id="restockDate">
@@ -426,6 +436,19 @@ tr:hover td{background:rgba(196,115,90,.04)}
       <div class="form-group">
         <label>总入库数量</label>
         <div id="restockTotalQty" style="padding:10px 13px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;font-size:15px;color:var(--accent)">1</div>
+      </div>
+
+      <!-- BUNDLE ITEMS (shown when bundleMode is checked) -->
+      <div id="bundleItemsGroup" style="display:none;grid-column:1/-1">
+        <div style="background:var(--surface2);border:1.5px solid var(--accent);border-radius:var(--rs);padding:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-weight:700;font-size:13px;color:var(--text2)">📦 捆绑产品明细</div>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addBundleItem()">＋ 添加产品</button>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:12px">每行填一个产品，「付钱」和「赠品」分开填。总价和优惠在下方统一填写。</div>
+          <div id="bundleItemRows"></div>
+          <div id="bundleSummary" style="margin-top:10px;font-size:13px;color:var(--accent);font-weight:600"></div>
+        </div>
       </div>
       <!-- Sub-unit fields (e.g. sheets per box for masks) -->
       <div id="subUnitGroup" style="display:none;grid-column:1/-1;display:none">
@@ -1921,6 +1944,8 @@ function populateRestockSelect() {
   const s=document.getElementById('restockProduct');
   s.innerHTML='<option value="">— 选择产品 —</option>'+db.products.sort((a,b)=>a.brand.localeCompare(b.brand)).map(p=>`<option value="${p.id}">${p.brand} · ${p.name}</option>`).join('');
   initTiers();
+  // Also refresh bundle product dropdowns if open
+  if(document.getElementById('bundleMode')?.checked) resetBundleMode();
 }
 function fillRestockInfo() {
   const id=document.getElementById('restockProduct').value;
@@ -1967,7 +1992,150 @@ function updateTotalQty(){
   document.getElementById('giftExpiryGroup').style.display=gift>0?'flex':'none';
 }
 
+// ═══════════════════════════════════════════
+//  BUNDLE MODE
+// ═══════════════════════════════════════════
+let bundleItemCount=0;
+
+function toggleBundleMode(){
+  const on=document.getElementById('bundleMode').checked;
+  document.getElementById('bundleItemsGroup').style.display=on?'block':'none';
+  document.getElementById('restockProduct').disabled=on;
+  document.getElementById('restockQty').disabled=on;
+  document.getElementById('restockGiftQty').disabled=on;
+  if(on && bundleItemCount===0){addBundleItem();addBundleItem();}
+}
+
+function addBundleItem(pId='',qty=1,isGift=false){
+  bundleItemCount++;
+  const n=bundleItemCount;
+  const cats=getCategories();
+  const productOpts=db.products.sort((a,b)=>a.brand.localeCompare(b.brand))
+    .map(p=>`<option value="${p.id}" ${p.id===pId?'selected':''}>${p.brand} · ${p.name}</option>`).join('');
+  const div=document.createElement('div');
+  div.className='bundle-item-row';
+  div.id='bundleItem'+n;
+  div.innerHTML=`
+    <div class="form-group" style="margin:0">
+      <label style="font-size:10px">产品</label>
+      <select id="biProduct${n}" style="width:100%"><option value="">— 选择 —</option>${productOpts}</select>
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:10px">数量</label>
+      <input type="number" id="biQty${n}" value="${qty}" min="1" oninput="updateBundleSummary()">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:10px">类型</label>
+      <select id="biType${n}" onchange="updateBundleSummary()">
+        <option value="paid" ${!isGift?'selected':''}>💰 付钱</option>
+        <option value="gift" ${isGift?'selected':''}>🎁 赠品</option>
+      </select>
+    </div>
+    <button type="button" class="btn btn-danger btn-sm" onclick="removeBundleItem(${n})" style="margin-bottom:2px">✕</button>
+  `;
+  document.getElementById('bundleItemRows').appendChild(div);
+  updateBundleSummary();
+}
+
+function removeBundleItem(n){
+  const el=document.getElementById('bundleItem'+n);if(el)el.remove();
+  updateBundleSummary();
+}
+
+function updateBundleSummary(){
+  let paid=0,gift=0;
+  for(let i=1;i<=bundleItemCount;i++){
+    const el=document.getElementById('bundleItem'+i);if(!el)continue;
+    const qty=parseInt(document.getElementById('biQty'+i).value)||0;
+    const type=document.getElementById('biType'+i).value;
+    if(type==='paid') paid+=qty; else gift+=qty;
+  }
+  document.getElementById('bundleSummary').textContent=paid||gift?`共：付钱 ${paid} 件 + 赠品 ${gift} 件 = ${paid+gift} 件`:'';
+}
+
+function getBundleItems(){
+  const items=[];
+  for(let i=1;i<=bundleItemCount;i++){
+    const el=document.getElementById('bundleItem'+i);if(!el)continue;
+    const pId=document.getElementById('biProduct'+i).value;
+    const qty=parseInt(document.getElementById('biQty'+i).value)||1;
+    const type=document.getElementById('biType'+i).value;
+    if(pId) items.push({pId,qty,isGift:type==='gift'});
+  }
+  return items;
+}
+
+function resetBundleMode(){
+  bundleItemCount=0;
+  document.getElementById('bundleItemRows').innerHTML='';
+  document.getElementById('bundleSummary').textContent='';
+  document.getElementById('bundleMode').checked=false;
+  document.getElementById('bundleItemsGroup').style.display='none';
+  document.getElementById('restockProduct').disabled=false;
+  document.getElementById('restockQty').disabled=false;
+  document.getElementById('restockGiftQty').disabled=false;
+}
+
 function addRestock() {
+  const isBundle=document.getElementById('bundleMode').checked;
+
+  if(isBundle){
+    const items=getBundleItems();
+    if(!items.length){toast('⚠️ 请至少添加一个产品');return;}
+    if(items.some(i=>!i.pId)){toast('⚠️ 请为每行选择产品');return;}
+    // Shared fields for the whole bundle
+    const arrived=document.getElementById('restockArrived').value;
+    const platform=document.getElementById('restockPlatform').value.trim();
+    const expiry=document.getElementById('restockExpiry').value;
+    const price=document.getElementById('restockPrice').value; // total bundle price
+    const origPrice=document.getElementById('restockOrigPrice').value;
+    if(platform) savePlatform(platform);
+    const commonFields={
+      date:document.getElementById('restockDate').value,
+      price:'0',origPrice:'0',platform,arrived, // individual price = 0, total recorded separately
+      promoType:document.getElementById('restockPromoType').value,
+      promoValue:document.getElementById('restockPromoValue').value,
+      promoName:document.getElementById('restockPromoName').value,
+      promoCode:document.getElementById('restockPromoCode').value,
+      tiers:[]
+    };
+    const bundleNote=`套装购买 · 总价RM${parseFloat(price||0).toFixed(2)}${document.getElementById('restockNote').value?' · '+document.getElementById('restockNote').value:''}`;
+    const subUnitQtyVal=parseInt(document.getElementById('subUnitQty').value)||0;
+    const batchCodes=[];
+    items.forEach(item=>{
+      const bc=genBatchCode(item.pId);
+      batchCodes.push(bc);
+      const r={
+        id:uuid(),productId:item.pId,batchCode:bc,
+        qty:item.qty, paidQty:item.isGift?0:item.qty, giftQty:item.isGift?item.qty:0,
+        qtyRemain:arrived==='arrived'?item.qty:0,
+        expiry, price:item.isGift?'0':'0', origPrice:'0',
+        bundlePrice:price, // store total bundle price on first paid item
+        subUnitQty:subUnitQtyVal,
+        batchStatus:arrived==='arrived'?'arrived':'transit',
+        isGift:item.isGift,
+        note:bundleNote,
+        ...commonFields
+      };
+      db.restocks.push(r);
+    });
+    saveLocal();autoSync();render();
+    const totalItems=items.reduce((s,i)=>s+i.qty,0);
+    toast(`✅ 套装已登记：${items.length}种产品共${totalItems}件${arrived==='arrived'?'，已到货':'，待到货'}`);
+    resetBundleMode();
+    ['restockPrice','restockOrigPrice','restockPromoValue','restockPromoName','restockPromoCode','restockNote','restockPlatform','restockExpiry','restockGiftExpiry'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('restockQty').value=1;
+    document.getElementById('restockGiftQty').value=0;
+    document.getElementById('restockTotalQty').textContent='1';
+    document.getElementById('restockPromoType').value='';
+    document.getElementById('subUnitGroup').style.display='none';
+    document.getElementById('subUnitQty').value='';
+    document.getElementById('subUnitBoxPrice').value='';
+    document.getElementById('subUnitCalcResult').textContent='—';
+    initTiers();
+    return;
+  }
+
   const pId=document.getElementById('restockProduct').value;
   if(!pId){toast('⚠️ 请选择产品');return;}
   const paidQty=parseInt(document.getElementById('restockQty').value)||1;
