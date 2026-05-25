@@ -1974,10 +1974,16 @@ function calcUnitPrice(){
   const totalBoxes=paidBoxes+giftBoxes;
   const result=document.getElementById('subUnitCalcResult');
   if(!result)return;
+  // Get subUnit label from selected product's category
+  const pId=document.getElementById('restockProduct').value;
+  const p=db.products.find(x=>x.id===pId);
+  const cfg=getCategoryConfig(p?.category||'');
+  const subU=cfg.subUnit||'片';
+  const mainU=cfg.unit||'盒';
   if(boxQty>0&&boxPrice>0){
     const perUnit=(boxPrice/boxQty).toFixed(3);
     const totalUnits=boxQty*totalBoxes;
-    result.textContent=`RM ${perUnit} / 片（共 ${totalUnits} 片）`;
+    result.textContent=`RM ${perUnit} / ${subU}（共 ${totalUnits} ${subU}）`;
     document.getElementById('restockPrice').value=boxPrice.toFixed(2);
   } else {
     result.textContent='—';
@@ -2000,9 +2006,14 @@ let bundleItemCount=0;
 function toggleBundleMode(){
   const on=document.getElementById('bundleMode').checked;
   document.getElementById('bundleItemsGroup').style.display=on?'block':'none';
-  document.getElementById('restockProduct').disabled=on;
-  document.getElementById('restockQty').disabled=on;
-  document.getElementById('restockGiftQty').disabled=on;
+  // Hide single-product fields when bundle mode is on
+  const singleFields=['restockProduct','restockQty','restockGiftQty','restockTotalQty'];
+  singleFields.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const wrap=el.closest('.form-group')||el.parentElement;
+    if(wrap) wrap.style.display=on?'none':'flex';
+  });
   if(on && bundleItemCount===0){addBundleItem();addBundleItem();}
 }
 
@@ -2071,6 +2082,13 @@ function resetBundleMode(){
   document.getElementById('bundleSummary').textContent='';
   document.getElementById('bundleMode').checked=false;
   document.getElementById('bundleItemsGroup').style.display='none';
+  // Restore single-product fields
+  ['restockProduct','restockQty','restockGiftQty','restockTotalQty'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el)return;
+    const wrap=el.closest('.form-group')||el.parentElement;
+    if(wrap) wrap.style.display='';
+  });
   document.getElementById('restockProduct').disabled=false;
   document.getElementById('restockQty').disabled=false;
   document.getElementById('restockGiftQty').disabled=false;
