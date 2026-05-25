@@ -1,0 +1,2090 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ 美妆护肤库存管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#faf7f4;--surface:#fff;--surface2:#f5f0eb;--border:#e8ddd4;--accent:#c4735a;--accent2:#8b4a6e;--accent3:#4a7c6e;--text:#2d1f1a;--text2:#6b4f47;--text3:#9b7f78;--shadow:0 2px 16px rgba(45,31,26,.08);--shadow-lg:0 8px 40px rgba(45,31,26,.14);--r:16px;--rs:10px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}
+
+/* HEADER */
+.header{background:linear-gradient(135deg,#2d1f1a 0%,#5a2d42 50%,#c4735a 100%);padding:22px 32px 16px;position:sticky;top:0;z-index:100;box-shadow:0 4px 20px rgba(45,31,26,.3)}
+.header-inner{max-width:1300px;margin:auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:'Playfair Display',serif;font-size:24px;color:#fff;flex:1}
+.logo span{color:#f2c4a8}
+.sync-status{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.12);border-radius:20px;padding:6px 14px;font-size:13px;color:#f2c4a8;cursor:pointer;transition:.2s;border:1px solid rgba(255,255,255,.2)}
+.sync-status:hover{background:rgba(255,255,255,.2)}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#6ecb8a;animation:pulse 2s infinite}
+.sync-dot.red{background:#e06b6b;animation:none}
+.sync-dot.grey{background:#aaa;animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* NAV */
+.nav{background:var(--surface);border-bottom:1px solid var(--border);padding:0 32px;position:sticky;top:69px;z-index:99;box-shadow:0 2px 8px rgba(45,31,26,.06);overflow-x:auto}
+.nav-inner{max-width:1300px;margin:auto;display:flex;gap:2px;white-space:nowrap}
+.tab-btn{padding:14px 18px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;color:var(--text3);background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:.2s;white-space:nowrap}
+.tab-btn:hover{color:var(--accent)}
+.tab-btn.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* MAIN */
+.main{max-width:1300px;margin:auto;padding:24px 32px 80px}
+.section{display:none}
+.section.active{display:block}
+
+/* CARDS */
+.card{background:var(--surface);border-radius:var(--r);border:1px solid var(--border);box-shadow:var(--shadow);padding:24px;margin-bottom:18px}
+.card-title{font-family:'Playfair Display',serif;font-size:18px;color:var(--text);margin-bottom:18px;display:flex;align-items:center;gap:8px}
+
+/* FORMS */
+.form-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+.form-group{display:flex;flex-direction:column;gap:5px}
+.form-group.full{grid-column:1/-1}
+.form-group.half{grid-column:span 2}
+label{font-size:11px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.6px}
+input,select,textarea{padding:10px 13px;border:1.5px solid var(--border);border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:14px;color:var(--text);background:var(--bg);transition:.2s;outline:none}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px rgba(196,115,90,.12)}
+textarea{resize:vertical;min-height:72px}
+.preview-img{display:none}
+
+/* BUTTONS */
+.btn{padding:10px 20px;border-radius:var(--rs);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;transition:.2s;border:none;display:inline-flex;align-items:center;gap:7px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#b5634b;transform:translateY(-1px);box-shadow:0 4px 14px rgba(196,115,90,.35)}
+.btn-secondary{background:var(--surface2);color:var(--text2);border:1.5px solid var(--border)}
+.btn-secondary:hover{border-color:var(--accent);color:var(--accent)}
+.btn-danger{background:#fee2e2;color:#b91c1c;border:1.5px solid #fca5a5}
+.btn-success{background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7}
+.btn-purple{background:#ede9fe;color:#5b21b6;border:1.5px solid #c4b5fd}
+.btn-sm{padding:6px 12px;font-size:12px}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+
+/* SEARCH */
+.search-bar{display:flex;gap:10px;margin-bottom:20px;align-items:center;flex-wrap:wrap}
+.search-input-wrap{position:relative;flex:1;min-width:180px}
+.search-input-wrap input{width:100%;padding-left:38px}
+.search-icon{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text3);font-size:15px}
+.filter-select{min-width:140px}
+
+/* PRODUCT GRID */
+.product-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:16px}
+.product-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:.2s;box-shadow:var(--shadow)}
+.product-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-lg)}
+.product-card-img img{display:none}
+.status-badge{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700}
+.badge-ok{background:#d1fae5;color:#065f46}
+.badge-low{background:#fef3c7;color:#92400e}
+.badge-out{background:#fee2e2;color:#991b1b}
+.badge-exp{background:#ede9fe;color:#5b21b6}
+.badge-transit{background:#dbeafe;color:#1e40af}
+.product-card-body{padding:14px}
+.product-brand{font-size:10px;font-weight:800;color:var(--accent);text-transform:uppercase;letter-spacing:.9px}
+.product-name{font-family:'Playfair Display',serif;font-size:15px;margin:3px 0 7px;color:var(--text)}
+.product-meta{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:9px}
+.tag{padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500;background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.product-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:9px}
+.pstat{text-align:center;padding:7px 4px;background:var(--bg);border-radius:7px}
+.pstat-val{font-weight:700;font-size:15px;color:var(--accent)}
+.pstat-lbl{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;margin-top:2px}
+.product-actions{display:flex;gap:6px;margin-top:11px;flex-wrap:wrap}
+.product-actions .btn{flex:1;justify-content:center}
+.expiry-text{font-size:11px;color:var(--text3);margin-top:4px}
+.expiry-danger{color:#e06b6b}
+.expiry-warn{color:#d97706}
+
+/* TABLE */
+.table-wrap{overflow-x:auto;margin:0 -24px;padding:0 24px}
+table{width:100%;min-width:900px;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:12px 16px;background:var(--surface2);color:var(--text2);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid var(--border);white-space:nowrap}
+td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:middle;line-height:1.6}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:rgba(196,115,90,.04)}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(45,31,26,.55);backdrop-filter:blur(4px);z-index:999;display:none;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:20px;padding:28px;max-width:620px;width:100%;max-height:92vh;overflow-y:auto;box-shadow:0 24px 60px rgba(45,31,26,.3);animation:slideUp .25s ease}
+@keyframes slideUp{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.modal-title{font-family:'Playfair Display',serif;font-size:20px}
+.modal-close{background:var(--surface2);border:none;border-radius:50%;width:32px;height:32px;cursor:pointer;font-size:16px;color:var(--text2);display:flex;align-items:center;justify-content:center;transition:.2s}
+.modal-close:hover{background:var(--border)}
+
+/* DASHBOARD */
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;margin-bottom:22px}
+.dash-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--rs);padding:18px 14px;text-align:center;box-shadow:var(--shadow)}
+.dash-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--accent)}
+.dash-lbl{font-size:11px;color:var(--text3);margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.dash-sub{font-size:12px;color:var(--text2);margin-top:3px}
+
+/* DURATION BARS */
+.dur-list{display:flex;flex-direction:column;gap:12px}
+.dur-item{background:var(--bg);border-radius:var(--rs);padding:14px 16px;border:1px solid var(--border)}
+.dur-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.dur-name{font-weight:600;font-size:14px}
+.dur-brand{font-size:11px;color:var(--text3)}
+.dur-bar-wrap{background:var(--border);border-radius:4px;height:7px;overflow:hidden}
+.dur-bar{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--accent),var(--accent2));transition:.8s ease}
+.dur-stats{display:flex;gap:16px;margin-top:8px;flex-wrap:wrap}
+.dur-stat{font-size:12px;color:var(--text2)}
+.dur-stat strong{color:var(--text)}
+
+/* DEAL CALCULATOR */
+.deal-card{background:linear-gradient(135deg,#fdf4f1 0%,#f3edf8 100%);border:1px solid #e8ddd4;border-radius:var(--r);padding:22px;margin-bottom:14px}
+.deal-options{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.deal-option{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px 16px;display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px}
+.deal-option.best{border-color:#6ee7b7;background:#f0fdf4}
+.deal-option-label{font-weight:700;font-size:13px;color:var(--text)}
+.deal-option-details{font-size:12px;color:var(--text2);margin-top:3px}
+.deal-option-price{font-family:'Playfair Display',serif;font-size:22px;font-weight:700;color:var(--accent);text-align:right}
+.deal-option-unit{font-size:11px;color:var(--text3);text-align:right}
+.deal-best-badge{background:#d1fae5;color:#065f46;border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;white-space:nowrap}
+
+/* USAGE LOG */
+.usage-entry{background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:12px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.usage-type-start{border-left:4px solid #6ee7b7}
+.usage-type-open{border-left:4px solid #93c5fd}
+.usage-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:6px}
+
+/* SYNC */
+.sync-panel{background:linear-gradient(135deg,#fdf4f1 0%,#f5edf9 100%);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin-bottom:18px}
+.sync-steps{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.sync-step{display:flex;gap:10px;align-items:flex-start}
+.step-num{width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+.step-text{font-size:13px;color:var(--text2);line-height:1.6}
+.step-text a{color:var(--accent);font-weight:600}
+.sync-btns{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+
+/* BATCH ROWS (inventory detail) */
+.batch-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:9px 12px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--bg);margin-bottom:7px;font-size:13px;transition:.15s}
+.batch-row:hover{border-color:var(--accent);background:#fff}
+.batch-row.batch-transit{border-left:4px solid #93c5fd}
+.batch-row.batch-arrived{border-left:4px solid #6ee7b7}
+.batch-row.batch-in_use{border-left:4px solid #fbbf24}
+.batch-row.batch-finished{border-left:4px solid #d1d5db;opacity:.6}
+.batch-code{font-weight:800;font-size:11px;color:var(--accent);letter-spacing:.5px;background:var(--surface2);border-radius:6px;padding:2px 7px;white-space:nowrap}
+.batch-status-tag{padding:2px 9px;border-radius:12px;font-size:11px;font-weight:700;white-space:nowrap}
+.bs-transit{background:#dbeafe;color:#1e40af}
+.bs-arrived{background:#d1fae5;color:#065f46}
+.bs-in_use{background:#fef3c7;color:#92400e}
+.bs-finished{background:#f3f4f6;color:#6b7280}
+
+/* TIER ROWS */
+.tier-row{display:grid;grid-template-columns:auto 1fr 1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:var(--rs);border:1.5px solid var(--border);background:var(--surface);margin-bottom:7px;transition:.15s}
+.tier-row.selected{border-color:#6ee7b7;background:#f0fdf4}
+.tier-check{width:18px;height:18px;accent-color:var(--accent3);cursor:pointer;flex-shrink:0}
+.tier-row input[type=number]{padding:7px 10px;font-size:13px}
+.tier-savings{font-size:11px;color:#065f46;font-weight:600;white-space:nowrap}
+
+/* PLATFORM LIST (settings) */
+.platform-list-item{display:flex;justify-content:space-between;align-items:center;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--rs);margin-bottom:8px;background:var(--bg);transition:.15s}
+.platform-list-item:hover{border-color:var(--accent);background:#fff}
+.platform-list-name{font-weight:600;font-size:14px;color:var(--text)}
+
+/* PLATFORM COMBOBOX */
+.platform-wrap{position:relative}
+.platform-wrap input{width:100%;padding-right:34px}
+.platform-arrow{position:absolute;right:10px;top:50%;transform:translateY(-50%);color:var(--text3);cursor:pointer;font-size:13px;pointer-events:none}
+.platform-dropdown{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1.5px solid var(--accent);border-radius:var(--rs);box-shadow:var(--shadow-lg);z-index:200;max-height:200px;overflow-y:auto;display:none}
+.platform-dropdown.open{display:block}
+.platform-option{padding:9px 13px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:.15s}
+.platform-option:hover{background:rgba(196,115,90,.08);color:var(--accent)}
+.platform-option .del-platform{color:var(--text3);font-size:11px;opacity:0;padding:2px 6px;border-radius:4px}
+.platform-option:hover .del-platform{opacity:1}
+.platform-option .del-platform:hover{background:#fee2e2;color:#b91c1c}
+.platform-add-row{padding:8px 13px;border-top:1px solid var(--border);font-size:12px;color:var(--accent);font-weight:600;cursor:pointer}
+.platform-add-row:hover{background:rgba(196,115,90,.06)}
+
+/* TOAST */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:#2d1f1a;color:#fff;padding:12px 22px;border-radius:40px;font-size:13px;z-index:9999;opacity:0;transition:.3s;pointer-events:none;white-space:nowrap;box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.toast.show{opacity:1}
+
+/* CAT TABS */
+.cat-tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:18px}
+.cat-tab{padding:6px 14px;border-radius:20px;border:1.5px solid var(--border);font-size:12px;font-weight:600;color:var(--text2);background:var(--surface);cursor:pointer;transition:.2s}
+.cat-tab:hover{border-color:var(--accent);color:var(--accent)}
+.cat-tab.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+/* SECTION HEADER */
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;flex-wrap:wrap;gap:10px}
+.section-title{font-family:'Playfair Display',serif;font-size:22px;color:var(--text)}
+
+/* INFO BOX */
+.info-box{background:#fef9f0;border:1px solid #fde68a;border-radius:var(--rs);padding:12px 16px;font-size:13px;color:#92400e;margin-top:10px}
+.info-box-blue{background:#eff6ff;border-color:#bfdbfe;color:#1e40af}
+.info-box-green{background:#f0fdf4;border-color:#a7f3d0;color:#065f46}
+
+/* DISCOUNT BADGE */
+.discount-tag{background:#fef3c7;color:#92400e;border:1px solid #fcd34d;border-radius:12px;padding:2px 9px;font-size:11px;font-weight:700}
+
+@media(max-width:640px){
+  .main{padding:16px 14px 70px}
+  .nav{padding:0 14px}
+  .header{padding:16px 14px 14px}
+  .form-grid{grid-template-columns:1fr}
+  .product-grid{grid-template-columns:1fr}
+  .dash-grid{grid-template-columns:repeat(2,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div class="logo">✨ <span>美妆</span>库存</div>
+    <div class="sync-status" onclick="openModal('syncModal')">
+      <div class="sync-dot grey" id="syncDot"></div>
+      <span id="syncLabel">云端同步</span>
+    </div>
+  </div>
+</div>
+
+<div class="nav">
+  <div class="nav-inner">
+    <button class="tab-btn active" onclick="showTab('dashboard',this)">📊 Dashboard</button>
+    <button class="tab-btn" onclick="showTab('inventory',this)">📦 库存总览</button>
+    <button class="tab-btn" onclick="showTab('usage',this)">🧴 使用记录</button>
+    <button class="tab-btn" onclick="showTab('restock',this)">🛒 进货管理</button>
+    <button class="tab-btn" onclick="showTab('records',this)">📋 购买记录</button>
+    <button class="tab-btn" onclick="showTab('deal',this)">💰 划算计算器</button>
+    <button class="tab-btn" onclick="showTab('add',this)">➕ 添加产品</button>
+    <button class="tab-btn" onclick="showTab('settings',this)">⚙️ 设置</button>
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ══════════════════════════════════════
+     TAB: DASHBOARD
+══════════════════════════════════════ -->
+<div class="section active" id="tab-dashboard">
+  <div class="section-header">
+    <div class="section-title">📊 消费 & 使用总览</div>
+  </div>
+
+  <!-- TOP STATS -->
+  <div class="dash-grid" id="dashStats"></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px" id="dashCols">
+
+    <!-- 每月消费预估 -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">💸 每月估计花费</div>
+      <div id="dashMonthly"></div>
+    </div>
+
+    <!-- 快到期 / 需补货 -->
+    <div class="card" style="margin-bottom:0">
+      <div class="card-title">⚠️ 需注意</div>
+      <div id="dashAlerts"></div>
+    </div>
+
+  </div>
+
+  <!-- 每瓶使用时长 -->
+  <div class="card">
+    <div class="card-title">⏱️ 每瓶使用时长估算</div>
+    <div id="dashDuration"></div>
+  </div>
+
+  <!-- 平台消费分布 -->
+  <div class="card">
+    <div class="card-title">🏪 平台累计消费</div>
+    <div id="dashPlatform"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: INVENTORY
+══════════════════════════════════════ -->
+<div class="section" id="tab-inventory">
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">🔍</span>
+      <input type="text" id="invSearch" placeholder="搜索品牌 / 产品名称..." oninput="renderInventory()">
+    </div>
+    <select class="filter-select" id="invCatFilter" onchange="renderInventory()">
+      <option value="">全部分类</option>
+      <option>护肤</option><option>洗发</option><option>沐浴</option>
+      <option>彩妆</option><option>身体护理</option><option>其他</option>
+    </select>
+    <select class="filter-select" id="invStatusFilter" onchange="renderInventory()">
+      <option value="">全部状态</option>
+      <option value="ok">库存充足</option><option value="low">库存偏少</option>
+      <option value="out">已缺货</option><option value="transit">在途中</option><option value="exp">即将过期</option>
+    </select>
+  </div>
+  <div class="cat-tabs" id="catTabsInv"></div>
+  <div class="product-grid" id="inventoryGrid"></div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: USAGE RECORDS
+══════════════════════════════════════ -->
+<div class="section" id="tab-usage">
+  <!-- Log new usage -->
+  <div class="card">
+    <div class="card-title">🧴 记录使用事件</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>选择产品</label>
+        <select id="uProduct" onchange="fillUsageInfo()">
+          <option value="">— 选择产品 —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>选择批次</label>
+        <select id="uBatch">
+          <option value="">— 先选产品 —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>事件类型</label>
+        <select id="uType" onchange="toggleUseUntil()">
+          <option value="start">🟢 开始使用（开封）</option>
+          <option value="open">🔵 开新瓶</option>
+          <option value="finish">⬜ 用完一瓶</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="uDate">
+      </div>
+      <div class="form-group" id="useUntilGroup" style="display:none">
+        <label>实际用完日期</label>
+        <input type="date" id="uUseUntil">
+      </div>
+      <div class="form-group">
+        <label>数量（瓶）</label>
+        <input type="number" id="uQty" value="1" min="1">
+      </div>
+      <div class="form-group full">
+        <label>备注</label>
+        <input type="text" id="uNote" placeholder="如：皮肤状态好转、效果明显...">
+      </div>
+      <input type="hidden" id="uLinkedOpenId">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addUsage()">✅ 记录</button>
+    </div>
+  </div>
+
+  <!-- Usage history -->
+  <div class="card">
+    <div class="card-title">📜 使用历史</div>
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="uSearch" placeholder="搜索产品..." oninput="renderUsage()">
+      </div>
+      <select class="filter-select" id="uTypeFilter" onchange="renderUsage()">
+        <option value="">全部类型</option>
+        <option value="start">开始使用</option>
+        <option value="open">开新瓶</option>
+        <option value="finish">用完</option>
+      </select>
+    </div>
+    <div id="usageList"></div>
+    <div id="usageEmpty" class="empty" style="display:none;text-align:center;padding:40px 20px;color:var(--text3)">
+      <div style="font-size:40px;margin-bottom:12px">🧴</div><p>暂无使用记录</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: RESTOCK
+══════════════════════════════════════ -->
+<div class="section" id="tab-restock">
+  <div class="card">
+    <div class="card-title">🛒 新增进货记录</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>选择已有产品</label>
+        <select id="restockProduct" onchange="fillRestockInfo()">
+          <option value="">— 选择产品 —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>进货日期</label>
+        <input type="date" id="restockDate">
+      </div>
+      <div class="form-group">
+        <label>进货数量</label>
+        <input type="number" id="restockQty" value="1" min="1">
+      </div>
+      <div class="form-group">
+        <label>此次单价 (RM)</label>
+        <input type="number" id="restockPrice" placeholder="0.00" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>购买平台</label>
+        <div class="platform-wrap" id="restockPlatformWrap">
+          <input type="text" id="restockPlatform" placeholder="输入或选择平台..." autocomplete="off" oninput="filterPlatformDropdown('restockPlatform')" onfocus="openPlatformDropdown('restockPlatform')" onblur="closePlatformDropdownDelay('restockPlatform')">
+          <span class="platform-arrow" onclick="togglePlatformDropdown('restockPlatform')">▾</span>
+          <div class="platform-dropdown" id="restockPlatformDropdown"></div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>过期日期</label>
+        <input type="date" id="restockExpiry">
+      </div>
+      <div class="form-group">
+        <label>到货状态</label>
+        <select id="restockArrived">
+          <option value="arrived">已到货</option>
+          <option value="transit">在途中（未到货）</option>
+        </select>
+      </div>
+
+      <!-- PROMO / DEAL section -->
+      <div class="form-group full" style="background:var(--surface2);border-radius:var(--rs);padding:14px;border:1px solid var(--border)">
+        <label style="margin-bottom:10px;display:block">🏷️ 优惠详情</label>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px">
+          <div class="form-group">
+            <label>优惠类型</label>
+            <select id="restockPromoType">
+              <option value="">无优惠</option>
+              <option value="percent">折扣 (%)</option>
+              <option value="flat">直减 (RM)</option>
+              <option value="bundle">买N送N</option>
+              <option value="voucher">优惠券/代码</option>
+              <option value="cashback">返现/返券</option>
+              <option value="free_gift">赠品</option>
+              <option value="other">其他</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>优惠值</label>
+            <input type="text" id="restockPromoValue" placeholder="如：20、5.00、买2送1">
+          </div>
+          <div class="form-group">
+            <label>活动名称</label>
+            <input type="text" id="restockPromoName" placeholder="如：11.11、会员日">
+          </div>
+          <div class="form-group">
+            <label>优惠码</label>
+            <input type="text" id="restockPromoCode" placeholder="填写优惠码">
+          </div>
+        </div>
+        <div class="form-group" style="margin-top:10px">
+          <label>原价 / 单瓶正价 (RM)</label>
+          <input type="number" id="restockOrigPrice" placeholder="如：168.00" step="0.01" oninput="recalcTiers()">
+        </div>
+
+        <!-- VOLUME PRICING TIERS -->
+        <div style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <label style="margin:0">📦 数量优惠方案（买越多越便宜）</label>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="addTierRow()">＋ 加一档</button>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-bottom:10px">填入不同数量对应的单价，打勾选择你这次实际享受的那一档。</div>
+          <div id="tierRows"></div>
+          <div id="tierSummary" style="margin-top:10px;font-size:13px;color:var(--accent);font-weight:600"></div>
+        </div>
+      </div>
+
+      <div class="form-group full">
+        <label>备注</label>
+        <input type="text" id="restockNote" placeholder="其他补充...">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addRestock()">✅ 提交进货记录</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: RECORDS
+══════════════════════════════════════ -->
+<div class="section" id="tab-records">
+  <div class="card">
+    <div class="card-title">📋 全部购买记录</div>
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="recSearch" placeholder="搜索品牌 / 产品名称..." oninput="renderRecords()">
+      </div>
+      <div class="platform-wrap" style="min-width:140px" id="recPlatformWrap">
+        <input type="text" class="filter-select" id="recPlatformFilter" placeholder="平台筛选..." autocomplete="off" oninput="renderRecords()" onfocus="openPlatformDropdown('recPlatformFilter')" onblur="closePlatformDropdownDelay('recPlatformFilter')">
+        <span class="platform-arrow" onclick="togglePlatformDropdown('recPlatformFilter')">▾</span>
+        <div class="platform-dropdown" id="recPlatformFilterDropdown"></div>
+      </div>
+      <select class="filter-select" id="recStatusFilter" onchange="renderRecords()">
+        <option value="">全部状态</option>
+        <option value="arrived">已到货</option><option value="transit">在途中</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr>
+          <th>批次</th><th>产品</th><th>品牌</th><th>日期</th><th>数量</th>
+          <th>单价</th><th>优惠</th><th>平台</th><th>状态</th><th>备注</th><th>操作</th>
+        </tr></thead>
+        <tbody id="recordsBody"></tbody>
+      </table>
+    </div>
+    <div id="recordsEmpty" style="display:none;text-align:center;padding:40px;color:var(--text3)">
+      <div style="font-size:36px;margin-bottom:10px">📋</div><p>暂无购买记录</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: DEAL CALCULATOR
+══════════════════════════════════════ -->
+<div class="section" id="tab-deal">
+  <div class="card">
+    <div class="card-title">💰 划算计算器</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">填入不同渠道/活动的价格，自动计算哪个最划算（按每瓶单价比较）。</p>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>选择产品（可选，用于参考用量）</label>
+        <select id="dealProduct">
+          <option value="">— 不选产品 —</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>产品名称（手动填也行）</label>
+        <input type="text" id="dealProductName" placeholder="如：Cetaphil 洁面乳 250ml">
+      </div>
+    </div>
+
+    <div id="dealOptionsWrap" style="margin-top:18px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-weight:700;font-size:14px;color:var(--text2)">购买方案</div>
+        <button class="btn btn-secondary btn-sm" onclick="addDealRow()">+ 增加方案</button>
+      </div>
+      <div id="dealRows"></div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="calcDeal()">🔍 比较哪个最划算</button>
+      <button class="btn btn-secondary" onclick="resetDeal()">🗑 重置</button>
+    </div>
+    <div id="dealResult" style="margin-top:18px"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: ADD PRODUCT
+══════════════════════════════════════ -->
+<div class="section" id="tab-add">
+  <div class="card">
+    <div class="card-title">✨ 添加新产品</div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>品牌名称 *</label>
+        <div class="platform-wrap" id="pBrandWrap">
+          <input type="text" id="pBrand" placeholder="输入或选择品牌..." autocomplete="off"
+            oninput="filterBrandDropdown('pBrand')" onfocus="openBrandDropdown('pBrand')" onblur="closeBrandDropdownDelay('pBrand')">
+          <span class="platform-arrow" onclick="toggleBrandDropdown('pBrand')">▾</span>
+          <div class="platform-dropdown" id="pBrandDropdown"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>产品名称 *</label><input type="text" id="pName" placeholder="如：温和洁面乳"></div>
+      <div class="form-group">
+        <label>产品分类</label>
+        <select id="pCategory">
+          <option>护肤</option><option>洗发</option><option>沐浴</option>
+          <option>彩妆</option><option>身体护理</option><option>其他</option>
+        </select>
+      </div>
+      <div class="form-group"><label>产品功效</label><input type="text" id="pFunction" placeholder="如：保湿、控油、美白"></div>
+      <div class="form-group"><label>容量 / 规格</label><input type="text" id="pSize" placeholder="如：150ml、200g"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="addProduct()">✅ 添加产品</button>
+      <button class="btn btn-secondary" onclick="clearAddForm()">🗑 清空</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════
+     TAB: SETTINGS
+══════════════════════════════════════ -->
+<div class="section" id="tab-settings">
+
+  <!-- Product Management -->
+  <div class="card">
+    <div class="card-title">📦 产品管理</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">删除产品将同时删除该产品的所有进货和使用记录。</p>
+    <div class="search-bar" style="margin-bottom:14px">
+      <div class="search-input-wrap">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="settingsProductSearch" placeholder="搜索品牌 / 产品名称..." oninput="renderSettingsProducts()">
+      </div>
+    </div>
+    <div id="settingsProductList"></div>
+    <div id="settingsProductEmpty" style="display:none;text-align:center;padding:30px;color:var(--text3);font-size:13px">
+      暂无产品
+    </div>
+  </div>
+
+  <!-- Platform Management -->
+  <div class="card">
+    <div class="card-title">🏪 购买平台管理</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">在这里管理你的平台清单。添加后，进货管理和筛选器里都可以快速选择。</p>
+
+    <!-- Add new platform -->
+    <div style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end">
+      <div class="form-group" style="flex:1;margin:0">
+        <label>新增平台</label>
+        <input type="text" id="newPlatformInput" placeholder="输入平台名称，如：Shopee、官网..." onkeydown="if(event.key==='Enter')addPlatformManual()">
+      </div>
+      <button class="btn btn-primary" onclick="addPlatformManual()">＋ 添加</button>
+    </div>
+
+    <!-- Platform list -->
+    <div id="platformList"></div>
+    <div id="platformEmpty" style="display:none;text-align:center;padding:30px;color:var(--text3);font-size:13px">
+      暂无平台，输入名称后点「添加」即可
+    </div>
+  </div>
+
+  <!-- Danger Zone -->
+  <div class="card" style="border-color:#fca5a5">
+    <div class="card-title" style="color:#b91c1c">⚠️ 危险区域</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:16px">以下操作不可撤销，请谨慎操作。</p>
+    <div class="btn-row">
+      <button class="btn btn-danger" onclick="clearAllData()">🗑 清空所有数据（产品、记录、使用历史）</button>
+    </div>
+  </div>
+
+</div>
+
+</div><!-- /main -->
+
+<!-- ══ MODAL: EDIT PRODUCT ══ -->
+<div class="modal-overlay" id="editModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✏️ 编辑产品</div>
+      <button class="modal-close" onclick="closeModal('editModal')">✕</button>
+    </div>
+    <div class="form-grid">
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>品牌</label>
+        <div class="platform-wrap" id="editBrandWrap">
+          <input type="text" id="editBrand" autocomplete="off"
+            oninput="filterBrandDropdown('editBrand')" onfocus="openBrandDropdown('editBrand')" onblur="closeBrandDropdownDelay('editBrand')">
+          <span class="platform-arrow" onclick="toggleBrandDropdown('editBrand')">▾</span>
+          <div class="platform-dropdown" id="editBrandDropdown"></div>
+        </div>
+      </div>
+      <div class="form-group"><label>产品名称</label><input type="text" id="editName"></div>
+      <div class="form-group"><label>分类</label><select id="editCategory"><option>护肤</option><option>洗发</option><option>沐浴</option><option>彩妆</option><option>身体护理</option><option>其他</option></select></div>
+      <div class="form-group"><label>功效</label><input type="text" id="editFunction"></div>
+      <div class="form-group"><label>容量规格</label><input type="text" id="editSize"></div>
+      <div class="form-group"><label>当前库存数量</label><input type="number" id="editQty" min="0"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveEdit()">💾 保存</button>
+      <button class="btn btn-secondary" onclick="closeModal('editModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: CLOUD SYNC ══ -->
+<div class="modal-overlay" id="syncModal">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">☁️ 云端同步设置</div>
+      <button class="modal-close" onclick="closeModal('syncModal')">✕</button>
+    </div>
+    <div class="sync-panel">
+      <ul class="sync-steps">
+        <li class="sync-step"><div class="step-num">1</div><div class="step-text">前往 <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> → 点右上角 <strong>Sign Up</strong>（Google 一键注册）</div></li>
+        <li class="sync-step"><div class="step-num">2</div><div class="step-text">登入后点右上角头像 → <strong>API Keys</strong> → 复制 <strong>Master Key</strong>（以 <code>$2a$</code> 开头）⚠️ 不是 Access Key</div></li>
+        <li class="sync-step"><div class="step-num">3</div><div class="step-text">填入下方两栏，点「💾 保存设置」。首次使用点「🚀 初始化」创建 Bin；已有 Bin ID 则直接保存即可。</div></li>
+      </ul>
+      <div class="form-grid">
+        <div class="form-group full"><label>JSONBIN MASTER KEY</label><input type="password" id="syncApiKey" placeholder="$2a$10$..." oninput="saveSyncCredentials()"></div>
+        <div class="form-group full"><label>BIN ID</label><input type="text" id="syncBinId" placeholder="如：6a0ff737ee5a733b12fdc8ac" oninput="saveSyncCredentials()"></div>
+      </div>
+      <div class="sync-btns">
+        <button class="btn btn-primary" onclick="saveSyncCredentials();toast('✅ 设置已保存')">💾 保存设置</button>
+        <button class="btn btn-secondary" onclick="syncInit()">🚀 初始化（首次创建）</button>
+        <button class="btn btn-secondary" onclick="syncPush()">→ 推送到云端</button>
+        <button class="btn btn-secondary" onclick="syncPull()">← 从云端拉取</button>
+      </div>
+    </div>
+    <div class="info-box">💡 免费版每月 10,000 次请求，日常使用完全足够。每次修改数据后会自动推送，打开页面时会自动拉取。</div>
+    <div class="info-box" style="margin-top:8px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c">⚠️ 出现 403 错误？原因通常是：①用了 Access Key 而不是 Master Key ②Bin ID 不属于这个账号。解决方法：重新点「🚀 初始化」用当前 Key 创建新 Bin。</div>
+  </div>
+</div>
+
+<!-- ══ MODAL: PRODUCT DETAIL ══ -->
+<div class="modal-overlay" id="detailModal">
+  <div class="modal" style="max-width:700px">
+    <div class="modal-header">
+      <div class="modal-title" id="detailTitle">产品详情</div>
+      <button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+    </div>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ══ MODAL: MARK ARRIVED ══ -->
+<div class="modal-overlay" id="arrivedModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">✅ 标记到货</div>
+      <button class="modal-close" onclick="closeModal('arrivedModal')">✕</button>
+    </div>
+    <input type="hidden" id="arrivedRestockId">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">填入这批货的截止日期，方便追踪过期提醒。</p>
+    <div class="form-group">
+      <label>截止日期（过期日期）</label>
+      <input type="date" id="arrivedExpiry">
+    </div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-primary" onclick="confirmArrived()">✅ 确认到货</button>
+      <button class="btn btn-secondary" onclick="closeModal('arrivedModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MODAL: EDIT USAGE ══ -->
+<div class="modal-overlay" id="editUsageModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-header">
+      <div class="modal-title">✏️ 编辑使用记录</div>
+      <button class="modal-close" onclick="closeModal('editUsageModal')">✕</button>
+    </div>
+    <input type="hidden" id="editUsageId">
+    <div class="form-grid" style="margin-bottom:4px">
+      <div class="form-group">
+        <label>事件类型</label>
+        <select id="editUsageType" onchange="toggleEditUsageUntil()">
+          <option value="start">🟢 开始使用</option>
+          <option value="open">🔵 开新瓶</option>
+          <option value="finish">⬜ 用完一瓶</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>日期</label>
+        <input type="date" id="editUsageDate">
+      </div>
+      <div class="form-group" id="editUsageUntilGroup" style="display:none">
+        <label>实际用完日期</label>
+        <input type="date" id="editUsageUntil">
+      </div>
+      <div class="form-group full">
+        <label>备注</label>
+        <input type="text" id="editUsageNote" placeholder="备注...">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveUsageEdit()">💾 保存</button>
+      <button class="btn btn-secondary" onclick="closeModal('editUsageModal')">取消</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let db = { products:[], restocks:[], usages:[] };
+const SKEY = 'skincare_db_v2';
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+function init() {
+  loadLocal();
+  document.getElementById('syncApiKey').value = localStorage.getItem('sc_apiKey')||'';
+  document.getElementById('syncBinId').value  = localStorage.getItem('sc_binId')||'';
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('restockDate').value = today;
+  document.getElementById('uDate').value = today;
+  render(); // render local data immediately
+  initDealRows();
+  const key = localStorage.getItem('sc_apiKey'), bid = localStorage.getItem('sc_binId');
+  if (key && bid) syncPull(true); else updateSyncDot('grey');
+}
+
+function loadLocal() {
+  try { const d=JSON.parse(localStorage.getItem(SKEY)); if(d) db=Object.assign({products:[],restocks:[],usages:[]},d); } catch(e){}
+  if (!db.usages) db.usages=[];
+}
+function saveLocal() { localStorage.setItem(SKEY,JSON.stringify(db)); }
+
+// Merge cloud data with local — keep whichever has MORE records (prevents overwrite on fast refresh)
+function mergeWithCloud(cloudDb) {
+  const local = db;
+  // Use the version with more total records as base, then add missing items from the other
+  const mergedProducts = mergeArraysById(local.products, cloudDb.products||[]);
+  const mergedRestocks = mergeArraysById(local.restocks, cloudDb.restocks||[]);
+  const mergedUsages   = mergeArraysById(local.usages,   cloudDb.usages||[]);
+  db = { products: mergedProducts, restocks: mergedRestocks, usages: mergedUsages };
+}
+
+function mergeArraysById(local, cloud) {
+  const map = {};
+  // cloud first as base
+  cloud.forEach(item => { map[item.id] = item; });
+  // local overwrites (local is more recent if push was in progress)
+  local.forEach(item => { map[item.id] = item; });
+  return Object.values(map);
+}
+
+// Compute product qty from restocks and usages — single source of truth
+function computeQty(pid) {
+  // Total arrived (including in_use) minus opened bottles (start/open usages)
+  const arrived = db.restocks.filter(r=>r.productId===pid && r.arrived==='arrived').reduce((s,r)=>s+r.qty,0);
+  const opened  = db.usages.filter(u=>u.productId===pid && (u.type==='start'||u.type==='open')).reduce((s,u)=>s+u.qty,0);
+  return Math.max(0, arrived - opened);
+}
+// Sync all product qtys from computed values (call after any change)
+function syncAllQty() {
+  db.products.forEach(p=>{ p.qty = computeQty(p.id); });
+}
+
+// ═══════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════
+function showTab(id, btn) {
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  if (btn) btn.classList.add('active');
+  const renders = {dashboard:renderDashboard,inventory:renderInventory,usage:()=>{populateUsageSelect();renderUsage()},restock:populateRestockSelect,records:renderRecords,deal:()=>{populateDealSelect()},settings:()=>{renderPlatformList();renderSettingsProducts();}};
+  if (renders[id]) renders[id]();
+}
+
+// ═══════════════════════════════════════════
+//  RENDER ALL
+// ═══════════════════════════════════════════
+function render() {
+  syncAllQty();
+  renderDashboard(); renderInventory(); renderCatTabs();
+  populateRestockSelect(); populateUsageSelect(); populateDealSelect();
+  renderRecords(); renderUsage();
+}
+
+// ═══════════════════════════════════════════
+//  DASHBOARD
+// ═══════════════════════════════════════════
+function renderDashboard() {
+  const today = new Date();
+  const totalProducts = db.products.length;
+  const inStock = db.products.filter(p=>p.qty>0).length;
+  const transit = db.restocks.filter(r=>r.arrived==='transit').length;
+  const expiringSoon = db.restocks.filter(r=>{
+    if(!r.expiry||r.arrived!=='arrived') return false;
+    const d=(new Date(r.expiry)-today)/86400000;
+    return d>=0 && d<=30;
+  }).length;
+
+  // total spend (arrived only)
+  const totalSpend = db.restocks.filter(r=>r.arrived==='arrived').reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+  // total savings from promos
+  const totalSaved = db.restocks.filter(r=>r.arrived==='arrived').reduce((s,r)=>{
+    const orig = parseFloat(r.origPrice||r.price)||0;
+    const paid = parseFloat(r.price)||0;
+    if (r.promoType && orig>paid) return s+(orig-paid)*r.qty;
+    return s;
+  },0);
+
+  document.getElementById('dashStats').innerHTML = `
+    <div class="dash-stat"><div class="dash-num">${totalProducts}</div><div class="dash-lbl">产品种类</div></div>
+    <div class="dash-stat"><div class="dash-num">${inStock}</div><div class="dash-lbl">有库存</div></div>
+    <div class="dash-stat"><div class="dash-num">${transit}</div><div class="dash-lbl">在途中</div></div>
+    <div class="dash-stat"><div class="dash-num" style="color:${expiringSoon>0?'#d97706':'var(--accent)'}">${expiringSoon}</div><div class="dash-lbl">快到期</div></div>
+    <div class="dash-stat"><div class="dash-num">RM${totalSpend.toFixed(0)}</div><div class="dash-lbl">累计花费</div></div>
+    <div class="dash-stat"><div class="dash-num" style="color:#065f46">RM${totalSaved.toFixed(0)}</div><div class="dash-lbl">累计节省</div></div>
+  `;
+
+  // Monthly cost
+  renderDashMonthly();
+  renderDashAlerts();
+  renderDashDuration();
+  renderDashPlatform();
+}
+
+function renderDashMonthly() {
+  // Estimate monthly cost per product using usage data
+  const rows = db.products.map(p=>{
+    const dur = calcDuration(p.id); // days per bottle
+    if (!dur || !p.price) return null;
+    const monthlyBottles = 30/dur;
+    const avgPrice = calcAvgPrice(p.id);
+    const monthlyCost = monthlyBottles * (avgPrice||parseFloat(p.price)||0);
+    return {p, dur, monthlyCost, avgPrice};
+  }).filter(Boolean).sort((a,b)=>b.monthlyCost-a.monthlyCost);
+
+  if (!rows.length) {
+    document.getElementById('dashMonthly').innerHTML = '<div class="info-box">💡 开始记录使用事件后，这里会显示每月估计花费。</div>'; return;
+  }
+
+  const total = rows.reduce((s,r)=>s+r.monthlyCost,0);
+  let html = `<div style="font-family:'Playfair Display',serif;font-size:28px;font-weight:700;color:var(--accent);margin-bottom:14px">RM ${total.toFixed(2)}<span style="font-size:14px;font-family:'DM Sans',sans-serif;color:var(--text3);font-weight:400"> / 月</span></div>`;
+  html += rows.map(r=>`
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-weight:600;font-size:13px">${r.p.brand} · ${r.p.name}</div>
+        <div style="font-size:11px;color:var(--text3)">每瓶约 ${r.dur} 天 · 均价 RM${(r.avgPrice||0).toFixed(2)}</div>
+      </div>
+      <div style="font-weight:700;color:var(--accent)">RM ${r.monthlyCost.toFixed(2)}</div>
+    </div>
+  `).join('');
+  document.getElementById('dashMonthly').innerHTML = html;
+}
+
+function renderDashAlerts() {
+  const today = new Date();
+  let items = [];
+  db.products.forEach(p=>{
+    const latestR=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='arrived'&&r.expiry).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    if(latestR?.expiry){
+      const d=(new Date(latestR.expiry)-today)/86400000;
+      if(d<0) items.push({icon:'💀',color:'#b91c1c',text:`<strong>${p.brand} ${p.name}</strong> 已过期！`});
+      else if(d<=14) items.push({icon:'⚠️',color:'#b91c1c',text:`<strong>${p.brand} ${p.name}</strong> 还剩 ${Math.ceil(d)} 天到期`});
+      else if(d<=30) items.push({icon:'🕐',color:'#d97706',text:`<strong>${p.brand} ${p.name}</strong> 还剩 ${Math.ceil(d)} 天到期`});
+    }
+    if(p.qty===0) items.push({icon:'📦',color:'#991b1b',text:`<strong>${p.brand} ${p.name}</strong> 库存已清零`});
+    else if(p.qty<=2) items.push({icon:'📉',color:'#d97706',text:`<strong>${p.brand} ${p.name}</strong> 库存只剩 ${p.qty} 个`});
+  });
+  if (!items.length) { document.getElementById('dashAlerts').innerHTML='<div class="info-box info-box-green">✅ 一切正常，无需操心！</div>'; return; }
+  document.getElementById('dashAlerts').innerHTML = items.map(i=>`
+    <div style="display:flex;gap:10px;align-items:flex-start;padding:9px 12px;background:var(--bg);border-radius:var(--rs);margin-bottom:7px;border-left:3px solid ${i.color}">
+      <span>${i.icon}</span><span style="font-size:13px;color:var(--text2)">${i.text}</span>
+    </div>
+  `).join('');
+}
+
+function renderDashDuration() {
+  const prods = db.products.filter(p=>db.usages.some(u=>u.productId===p.id));
+  if (!prods.length) {
+    document.getElementById('dashDuration').innerHTML='<div class="info-box">💡 在「使用记录」里记录开瓶/用完事件，即可自动计算每瓶用多久。</div>'; return;
+  }
+  let html='<div class="dur-list">';
+  prods.forEach(p=>{
+    const dur = calcDuration(p.id);
+    const openCount = db.usages.filter(u=>u.productId===p.id && (u.type==='open'||u.type==='start')).length;
+    const finishCount = db.usages.filter(u=>u.productId===p.id && u.type==='finish').length;
+    const avgPrice = calcAvgPrice(p.id);
+    const costPerDay = dur>0 && avgPrice>0 ? (avgPrice/dur).toFixed(2) : null;
+    const pct = dur>0 ? Math.min(100,Math.round(30/dur*100)) : 0;
+    html+=`
+      <div class="dur-item">
+        <div class="dur-header">
+          <div><div class="dur-name">${p.brand} · ${p.name}</div><div class="dur-brand">${p.category||''} ${p.size?'· '+p.size:''}</div></div>
+          <div style="text-align:right"><div style="font-size:20px;font-weight:700;color:var(--accent)">${dur?dur+'天':'—'}</div><div style="font-size:11px;color:var(--text3)">每瓶约</div></div>
+        </div>
+        ${dur?`<div class="dur-bar-wrap"><div class="dur-bar" style="width:${pct}%"></div></div>`:''}
+        <div class="dur-stats">
+          <div class="dur-stat">开瓶次数：<strong>${openCount}</strong></div>
+          <div class="dur-stat">用完次数：<strong>${finishCount}</strong></div>
+          ${avgPrice?`<div class="dur-stat">均价：<strong>RM ${avgPrice.toFixed(2)}</strong></div>`:''}
+          ${costPerDay?`<div class="dur-stat">每天约：<strong>RM ${costPerDay}</strong></div>`:''}
+          ${dur?`<div class="dur-stat">每月消耗：<strong>${(30/dur).toFixed(1)} 瓶</strong></div>`:''}
+        </div>
+      </div>
+    `;
+  });
+  html+='</div>';
+  document.getElementById('dashDuration').innerHTML=html;
+}
+
+function renderDashPlatform() {
+  const map={};
+  db.restocks.filter(r=>r.arrived==='arrived').forEach(r=>{
+    const pl=r.platform||'其他';
+    if(!map[pl]) map[pl]={spend:0,count:0};
+    map[pl].spend+=r.qty*(parseFloat(r.price)||0);
+    map[pl].count+=r.qty;
+  });
+  const entries=Object.entries(map).sort((a,b)=>b[1].spend-a[1].spend);
+  if (!entries.length) { document.getElementById('dashPlatform').innerHTML='<div style="color:var(--text3);font-size:13px">暂无数据</div>'; return; }
+  const max=entries[0][1].spend;
+  document.getElementById('dashPlatform').innerHTML=entries.map(([pl,d])=>`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <div style="width:90px;font-size:13px;font-weight:600;color:var(--text2);flex-shrink:0">${pl}</div>
+      <div style="flex:1;background:var(--border);border-radius:4px;height:8px;overflow:hidden">
+        <div style="width:${Math.round(d.spend/max*100)}%;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:4px;transition:.8s"></div>
+      </div>
+      <div style="width:90px;text-align:right;font-size:13px;font-weight:700;color:var(--accent)">RM ${d.spend.toFixed(2)}</div>
+      <div style="font-size:11px;color:var(--text3);width:50px">${d.count} 件</div>
+    </div>
+  `).join('');
+}
+
+// helpers
+function calcDuration(pid) {
+  // Best: finish records that have a linkedOpenId
+  const linkedFinishes=db.usages.filter(u=>u.productId===pid && u.type==='finish' && u.linkedOpenId && u.finishedDate);
+  if(linkedFinishes.length>=1){
+    let total=0,cnt=0;
+    linkedFinishes.forEach(f=>{
+      const openU=db.usages.find(x=>x.id===f.linkedOpenId);
+      if(openU){const days=(new Date(f.finishedDate)-new Date(openU.date))/86400000;if(days>0){total+=days;cnt++;}}
+    });
+    if(cnt>0) return Math.round(total/cnt);
+  }
+  const finishedBatches=db.restocks.filter(r=>r.productId===pid && r.batchStatus==='finished' && r.finishedDate);
+  if(finishedBatches.length>=1){
+    let total=0,cnt=0;
+    finishedBatches.forEach(r=>{
+      // find the start/open usage linked to this batch
+      const openUsage=db.usages.find(u=>u.batchId===r.id&&(u.type==='start'||u.type==='open'));
+      const startDate=openUsage?.date||r.date;
+      const days=(new Date(r.finishedDate)-new Date(startDate))/86400000;
+      if(days>0){total+=days;cnt++;}
+    });
+    if(cnt>0) return Math.round(total/cnt);
+  }
+  // Fallback: gap between consecutive open events
+  const opens=db.usages.filter(u=>u.productId===pid&&(u.type==='open'||u.type==='start')).sort((a,b)=>new Date(a.date)-new Date(b.date));
+  const finishes=db.usages.filter(u=>u.productId===pid&&u.type==='finish').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  if(opens.length>=2){
+    let total=0,cnt=0;
+    for(let i=1;i<opens.length;i++){total+=(new Date(opens[i].date)-new Date(opens[i-1].date))/86400000;cnt++;}
+    if(cnt>0) return Math.round(total/cnt);
+  }
+  if(opens.length>=1&&finishes.length>=1){
+    let pairs=0,total=0;
+    finishes.forEach(f=>{
+      const o=opens.find(o=>new Date(o.date)<=new Date(f.date));
+      if(o){total+=(new Date(f.date)-new Date(o.date))/86400000;pairs++;}
+    });
+    if(pairs>0) return Math.round(total/pairs);
+  }
+  return null;
+}
+
+function calcAvgPrice(pid) {
+  const recs=db.restocks.filter(r=>r.productId===pid && r.arrived==='arrived' && r.price);
+  if(!recs.length) return null;
+  const totalQty=recs.reduce((s,r)=>s+r.qty,0);
+  const totalCost=recs.reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+  return totalQty>0?totalCost/totalQty:null;
+}
+
+// ═══════════════════════════════════════════
+//  INVENTORY
+// ═══════════════════════════════════════════
+function renderCatTabs() {
+  const cats=['全部',...new Set(db.products.map(p=>p.category||'其他'))];
+  document.getElementById('catTabsInv').innerHTML=cats.map((c,i)=>`<button class="cat-tab ${i===0?'active':''}" onclick="setCatFilter(this,'${c}')">${c}</button>`).join('');
+}
+function setCatFilter(el,cat) {
+  document.querySelectorAll('.cat-tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('invCatFilter').value=cat==='全部'?'':cat;
+  renderInventory();
+}
+function categoryEmoji(cat){return({'护肤':'🧴','洗发':'🚿','沐浴':'🛁','彩妆':'💄','身体护理':'🌸','其他':'📦'})[cat]||'📦';}
+function renderInventory() {
+  const q=document.getElementById('invSearch').value.toLowerCase();
+  const cf=document.getElementById('invCatFilter').value;
+  const sf=document.getElementById('invStatusFilter').value;
+  const today=new Date();
+  let prods=db.products.filter(p=>{
+    if(q && !p.brand.toLowerCase().includes(q) && !p.name.toLowerCase().includes(q)) return false;
+    if(cf && p.category!==cf) return false;
+    const st=getStatus(p);
+    if(sf && st!==sf) return false;
+    return true;
+  }).sort((a,b)=>a.brand.localeCompare(b.brand));
+  if(!prods.length){document.getElementById('inventoryGrid').innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:60px 20px;color:var(--text3)"><div style="font-size:44px;margin-bottom:12px">🌸</div><p>暂无产品，前往「添加产品」开始记录吧！</p></div>`;return;}
+  document.getElementById('inventoryGrid').innerHTML=prods.map(p=>{
+    const st=getStatus(p);
+    const bg=statusBadge(st);
+    const latestR=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='arrived'&&r.expiry).sort((a,b)=>new Date(a.expiry)-new Date(b.expiry))[0];
+    const et=expiryText(latestR?.expiry||'');
+    const transitCnt=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='transit').reduce((s,r)=>s+r.qty,0);
+    const inUseBatch=db.restocks.find(r=>r.productId===p.id&&r.batchStatus==='in_use');
+    const arrivedBatches=db.restocks.filter(r=>r.productId===p.id&&r.batchStatus==='arrived');
+    const dur=calcDuration(p.id);
+    const avgP=calcAvgPrice(p.id);
+    // compact batch lines for card
+    const batchLines=db.restocks.filter(r=>r.productId===p.id&&r.batchStatus!=='finished')
+      .sort((a,b)=>new Date(a.date)-new Date(b.date))
+      .map(r=>{
+        const bs=batchStatusLabel(r.batchStatus||r.arrived);
+        const et2=expiryText(r.expiry||'');
+        return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--border);margin-bottom:4px;font-size:11px">
+          <span class="batch-code" style="font-size:10px">${r.batchCode||'—'}</span>
+          <span style="flex:1;color:var(--text2)">${r.qty}件 · RM${parseFloat(r.price||0).toFixed(2)}</span>
+          ${r.expiry?`<span class="${et2.cls}">⏰${r.expiry}</span>`:'<span style="color:#d97706">无截止</span>'}
+          ${r.finishedDate?`<span style="color:#6b7280">✅${r.finishedDate}</span>`:''}
+          <span class="batch-status-tag ${bs.cls}" style="padding:1px 6px;font-size:10px">${bs.txt}</span>
+        </div>`;
+      }).join('');
+    return `<div class="product-card">
+      <div class="product-card-body">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+          <div style="font-size:22px">${categoryEmoji(p.category)}</div>
+          <span class="status-badge ${bg.cls}">${bg.label}</span>
+        </div>
+        <div class="product-brand">${p.brand}</div>
+        <div class="product-name">${p.name}</div>
+        <div class="product-meta">
+          ${p.category?`<span class="tag">${p.category}</span>`:''}
+          ${p.function?`<span class="tag">${p.function}</span>`:''}
+          ${p.size?`<span class="tag">${p.size}</span>`:''}
+        </div>
+        ${latestR?.expiry?`<div class="expiry-text ${et.cls}" style="margin-bottom:6px">⏰ 最早到期：${latestR.expiry} ${et.msg}</div>`:''}
+        ${batchLines?`<div style="margin-bottom:8px">${batchLines}</div>`:''}
+        <div class="product-stats">
+          <div class="pstat"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">库存</div></div>
+          <div class="pstat"><div class="pstat-val" style="${transitCnt>0?'color:#1d4ed8':''}">${transitCnt||0}</div><div class="pstat-lbl">在途</div></div>
+          <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每瓶</div></div>
+        </div>
+        ${avgP?`<div style="font-size:12px;color:var(--text2);margin-top:8px">均价：<strong style="color:var(--accent)">RM ${avgP.toFixed(2)}</strong></div>`:''}
+        <div class="product-actions">
+          <button class="btn btn-secondary btn-sm" onclick="openDetail('${p.id}')">📊 详情</button>
+          <button class="btn btn-secondary btn-sm" onclick="openEdit('${p.id}')">✏️ 编辑</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+function getStatus(p) {
+  // expiry: check earliest expiry among active (arrived/in_use) batches
+  const activeBatches=db.restocks.filter(r=>r.productId===p.id&&(r.batchStatus==='arrived'||r.batchStatus==='in_use')&&r.expiry);
+  if(activeBatches.length){
+    const earliest=activeBatches.sort((a,b)=>new Date(a.expiry)-new Date(b.expiry))[0];
+    const d=(new Date(earliest.expiry)-new Date())/86400000;
+    if(d>=0&&d<=30) return 'exp';
+  }
+  const t=db.restocks.filter(r=>r.productId===p.id&&r.batchStatus==='transit').length;
+  if(t>0&&p.qty===0) return 'transit';
+  if(p.qty===0) return 'out';
+  if(p.qty<=2) return 'low';
+  return 'ok';
+}
+function statusBadge(s){return({ok:{cls:'badge-ok',label:'充足'},low:{cls:'badge-low',label:'偏少'},out:{cls:'badge-out',label:'缺货'},exp:{cls:'badge-exp',label:'快到期'},transit:{cls:'badge-transit',label:'在途'}})[s]||{cls:'badge-ok',label:'充足'};}
+function expiryText(exp){if(!exp)return{cls:'',msg:''};const d=Math.ceil((new Date(exp)-new Date())/86400000);if(d<0)return{cls:'expiry-danger',msg:'（已过期！）'};if(d<=7)return{cls:'expiry-danger',msg:`（${d}天）`};if(d<=30)return{cls:'expiry-warn',msg:`（${d}天）`};return{cls:'',msg:''};}
+
+// ═══════════════════════════════════════════
+//  PRODUCT DETAIL MODAL
+// ═══════════════════════════════════════════
+function batchStatusLabel(s){return({transit:{cls:'bs-transit',txt:'🚚 在途中'},arrived:{cls:'bs-arrived',txt:'✅ 已到货'},in_use:{cls:'bs-in_use',txt:'🧴 使用中'},finished:{cls:'bs-finished',txt:'⬜ 已用完'}})[s]||{cls:'bs-arrived',txt:'✅ 已到货'};}
+
+function openDetail(id) {
+  const p=db.products.find(x=>x.id===id); if(!p) return;
+  const allRestocks=db.restocks.filter(r=>r.productId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const usages=db.usages.filter(u=>u.productId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const dur=calcDuration(id);
+  const avgP=calcAvgPrice(id);
+  const totalSpend=allRestocks.filter(r=>r.arrived==='arrived').reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+
+  const batchRows=allRestocks.map(r=>{
+    const bs=batchStatusLabel(r.batchStatus||r.arrived);
+    const et=expiryText(r.expiry||'');
+    const saved=r.origPrice&&parseFloat(r.origPrice)>parseFloat(r.price)?(parseFloat(r.origPrice)-parseFloat(r.price))*r.qty:0;
+    return `<div class="batch-row batch-${r.batchStatus||r.arrived}">
+      <span class="batch-code">${r.batchCode||'—'}</span>
+      <div>
+        <div style="font-weight:600">${r.date||'—'} · ${r.platform||'—'} · ${r.qty}件</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px">
+          单价 RM${parseFloat(r.price||0).toFixed(2)}
+          ${saved>0?`<span style="color:#065f46"> · 省 RM${saved.toFixed(2)}</span>`:''}
+          ${r.expiry?`<span class="${et.cls}"> · ⏰ 截止 ${r.expiry} ${et.msg}</span>`:'<span style="color:#d97706"> · 未填截止日期</span>'}
+          ${r.finishedDate?`<span style="color:#6b7280"> · ✅ 实际用完 ${r.finishedDate}</span>`:''}
+        </div>
+      </div>
+      <span class="batch-status-tag ${bs.cls}">${bs.txt}</span>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <button class="btn btn-secondary btn-sm" onclick="editExpiry('${r.id}');closeModal('detailModal')">📅 ${r.expiry?'改日期':'填日期'}</button>
+        ${r.batchStatus==='arrived'?`<button class="btn btn-purple btn-sm" onclick="markBatchInUse('${r.id}')">🧴 开始用</button>`:''}
+        ${r.batchStatus==='in_use'?`<button class="btn btn-secondary btn-sm" onclick="markBatchFinished('${r.id}')">⬜ 用完</button>`:''}
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('detailTitle').textContent=`${p.brand} · ${p.name}`;
+  document.getElementById('detailBody').innerHTML=`
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">当前库存</div></div>
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每瓶时长</div></div>
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${avgP?'RM'+avgP.toFixed(2):'—'}</div><div class="pstat-lbl">均价</div></div>
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">RM${totalSpend.toFixed(0)}</div><div class="pstat-lbl">累计花费</div></div>
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${allRestocks.length}</div><div class="pstat-lbl">批次总数</div></div>
+      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${dur&&avgP?'RM'+(avgP/dur).toFixed(2):'—'}</div><div class="pstat-lbl">每天费用</div></div>
+    </div>
+    <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text2)">📦 进货批次（${allRestocks.length}批）</div>
+    ${allRestocks.length?batchRows:'<div style="color:var(--text3);font-size:13px;padding:10px 0">暂无进货记录</div>'}
+    <div style="font-weight:700;font-size:13px;margin:16px 0 8px;color:var(--text2)">🧴 使用事件（${usages.length}）</div>
+    ${usages.length?usages.slice(0,5).map(u=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
+      <span>${u.type==='start'?'🟢':u.type==='open'?'🔵':'⬜'}</span>
+      <span style="color:var(--text2)">${u.date}</span>
+      <span>${u.type==='start'?'开始使用':u.type==='open'?'开新瓶':'用完一瓶'}</span>
+      ${u.batchCode?`<span class="batch-code">${u.batchCode}</span>`:''}
+      ${u.note?`<span style="color:var(--text3)">— ${u.note}</span>`:''}
+    </div>`).join(''):'<div style="color:var(--text3);font-size:13px">无使用记录</div>'}
+  `;
+  openModal('detailModal');
+}
+
+function markBatchInUse(rid){
+  const r=db.restocks.find(x=>x.id===rid);if(!r)return;
+  r.batchStatus='in_use';
+  saveLocal();autoSync();render();
+  openDetail(r.productId);
+  toast('🧴 批次 '+r.batchCode+' 已开始使用，库存 -1');
+}
+function markBatchFinished(rid){
+  const r=db.restocks.find(x=>x.id===rid);if(!r)return;
+  r.batchStatus='finished';
+  r.qtyRemain=0;
+  saveLocal();autoSync();render();
+  openDetail(r.productId);
+  toast('⬜ 批次 '+r.batchCode+' 已用完');
+}
+
+// ═══════════════════════════════════════════
+//  USAGE
+// ═══════════════════════════════════════════
+function populateUsageSelect() {
+  const s=document.getElementById('uProduct');
+  s.innerHTML='<option value="">— 选择产品 —</option>'+db.products.sort((a,b)=>a.brand.localeCompare(b.brand)).map(p=>`<option value="${p.id}">${p.brand} · ${p.name}</option>`).join('');
+}
+function fillUsageInfo() {
+  if(!document.getElementById('uDate').value) document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
+  const pid=document.getElementById('uProduct').value;
+  const batchSel=document.getElementById('uBatch');
+  if(!pid){batchSel.innerHTML='<option value="">— 先选产品 —</option>';return;}
+  const batches=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').sort((a,b)=>new Date(a.date)-new Date(b.date));
+  batchSel.innerHTML='<option value="">— 不指定批次 —</option>'+batches.map(r=>{
+    const bs=r.batchStatus||r.arrived;
+    const statusTxt={arrived:'已到货',in_use:'使用中',finished:'已用完'}[bs]||bs;
+    return `<option value="${r.id}">${r.batchCode||r.id.slice(-4)} · ${r.qty}件 · RM${parseFloat(r.price||0).toFixed(2)}${r.expiry?' · 到期'+r.expiry:''} [${statusTxt}]</option>`;
+  }).join('');
+  // auto-select in_use batch if exists
+  const inUse=batches.find(r=>r.batchStatus==='in_use');
+  if(inUse) batchSel.value=inUse.id;
+}
+function toggleUseUntil(){
+  const type=document.getElementById('uType').value;
+  document.getElementById('useUntilGroup').style.display=(type==='finish')?'flex':'none';
+}
+
+function addUsage() {
+  const pid=document.getElementById('uProduct').value;
+  if(!pid){toast('⚠️ 请选择产品');return;}
+  const type=document.getElementById('uType').value;
+  const qty=parseInt(document.getElementById('uQty').value)||1;
+  const batchId=document.getElementById('uBatch').value;
+  const batchR=batchId?db.restocks.find(x=>x.id===batchId):null;
+  const useUntil=document.getElementById('uUseUntil').value;
+  const linkedOpenId=document.getElementById('uLinkedOpenId').value||null;
+  const u={id:uuid(),productId:pid,type,date:document.getElementById('uDate').value,qty,
+    note:document.getElementById('uNote').value.trim(),
+    batchId:batchId||null,
+    batchCode:batchR?.batchCode||null,
+    finishedDate: type==='finish'?(useUntil||document.getElementById('uDate').value):null,
+    linkedOpenId: type==='finish'?linkedOpenId:null
+  };
+  db.usages.push(u);
+  // update batch status
+  if(batchR){
+    if(type==='start'||type==='open') batchR.batchStatus='in_use';
+    if(type==='finish'){
+      batchR.batchStatus='finished';
+      batchR.qtyRemain=0;
+      if(useUntil) batchR.finishedDate=useUntil;
+      else batchR.finishedDate=document.getElementById('uDate').value;
+    }
+  }
+  saveLocal();autoSync();render();
+  if(document.getElementById('detailModal').classList.contains('open')) openDetail(pid);
+  toast(`✅ 已记录：${type==='start'?'开始使用':type==='open'?'开新瓶':'用完一瓶'}${batchR?' ('+batchR.batchCode+')':''}`);
+  document.getElementById('uProduct').value='';
+  document.getElementById('uBatch').innerHTML='<option value="">— 先选产品 —</option>';
+  document.getElementById('uNote').value='';
+  document.getElementById('uUseUntil').value='';
+  document.getElementById('uLinkedOpenId').value='';
+  document.getElementById('uQty').value=1;
+}
+function renderUsage() {
+  const q=document.getElementById('uSearch').value.toLowerCase();
+  const tf=document.getElementById('uTypeFilter').value;
+  let us=[...db.usages].sort((a,b)=>new Date(b.date)-new Date(a.date)).filter(u=>{
+    const p=db.products.find(x=>x.id===u.productId);
+    const lbl=p?`${p.brand} ${p.name}`:'';
+    if(q&&!lbl.toLowerCase().includes(q))return false;
+    if(tf&&u.type!==tf)return false;
+    return true;
+  });
+  document.getElementById('usageEmpty').style.display=us.length?'none':'block';
+  document.getElementById('usageList').innerHTML=us.map(u=>{
+    const p=db.products.find(x=>x.id===u.productId);
+    const icons={start:'🟢',open:'🔵',finish:'⬜'};
+    const labels={start:'开始使用',open:'开新瓶',finish:'用完一瓶'};
+    const cls={start:'usage-type-start',open:'usage-type-open',finish:''};
+    const hasFinish = (u.type==='start'||u.type==='open')
+      ? db.usages.some(f=>f.type==='finish' && f.linkedOpenId===u.id)
+      : false;
+    const canFinish = (u.type==='start'||u.type==='open') && !hasFinish;
+    const batchR = u.batchId ? db.restocks.find(r=>r.id===u.batchId) : null;
+    // for finish records, find linked open event date
+    const linkedOpen = u.linkedOpenId ? db.usages.find(x=>x.id===u.linkedOpenId) : null;
+    const durationDays = u.type==='finish' && linkedOpen && u.finishedDate
+      ? Math.round((new Date(u.finishedDate)-new Date(linkedOpen.date))/86400000) : null;
+    const batchDisplay = u.batchCode
+      ? `<span class="batch-code">${u.batchCode}</span>`
+      : '<span class="batch-code" style="background:#fee2e2;color:#b91c1c">无批次</span>';
+    return `<div class="usage-entry ${cls[u.type]}">
+      <div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0">
+        <span style="font-size:16px;flex-shrink:0">${icons[u.type]}</span>
+        <div style="min-width:0">
+          <div style="font-weight:600;font-size:13px;display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            ${batchDisplay}
+            <span style="color:var(--text2)">${p?`${p.brand} · ${p.name}`:'（已删除）'}</span>
+          </div>
+          <div style="font-size:12px;color:var(--text3);margin-top:2px">
+            ${labels[u.type]}${u.qty>1?` × ${u.qty}`:''}
+            ${u.type==='finish'&&u.finishedDate?` · 用完日期 ${u.finishedDate}`:''}
+            ${durationDays?` · 用了 <strong style="color:var(--accent)">${durationDays} 天</strong>`:''}
+            ${linkedOpen?` · 始于 ${linkedOpen.date}`:''}
+            ${u.note?` · ${u.note}`:''}
+          </div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;flex-shrink:0">
+        <div style="font-size:12px;color:var(--text3);white-space:nowrap">${u.date}</div>
+        ${canFinish?`<button class="btn btn-secondary btn-sm" onclick="quickFinish('${u.id}')" style="white-space:nowrap">⬜ 用完</button>`:''}
+        <button class="btn btn-secondary btn-sm" onclick="openUsageEdit('${u.id}')">✏️</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteUsage('${u.id}')">🗑</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function quickFinish(openUsageId) {
+  const openU = db.usages.find(x=>x.id===openUsageId);
+  if(!openU) return;
+  const today = new Date().toISOString().slice(0,10);
+  // pre-fill the usage form
+  document.getElementById('uProduct').value = openU.productId;
+  fillUsageInfo();
+  document.getElementById('uBatch').value = openU.batchId||'';
+  document.getElementById('uType').value = 'finish';
+  toggleUseUntil();
+  document.getElementById('uDate').value = today;
+  document.getElementById('uUseUntil').value = today;
+  // store the linked open id so we can mark it as finished
+  document.getElementById('uLinkedOpenId').value = openUsageId;
+  // scroll to form
+  document.querySelector('#tab-usage .card').scrollIntoView({behavior:'smooth'});
+  toast('📝 请填写用完日期后按「记录」');
+}
+
+function deleteUsage(id){if(!confirm('删除此使用记录？'))return;db.usages=db.usages.filter(u=>u.id!==id);saveLocal();autoSync();render();toast('🗑 已删除');}
+
+function openUsageEdit(id){
+  const u=db.usages.find(x=>x.id===id);if(!u)return;
+  document.getElementById('editUsageId').value=id;
+  document.getElementById('editUsageType').value=u.type;
+  document.getElementById('editUsageDate').value=u.date||'';
+  document.getElementById('editUsageNote').value=u.note||'';
+  document.getElementById('editUsageUntil').value=u.finishedDate||'';
+  toggleEditUsageUntil();
+  openModal('editUsageModal');
+}
+function toggleEditUsageUntil(){
+  const type=document.getElementById('editUsageType').value;
+  document.getElementById('editUsageUntilGroup').style.display=type==='finish'?'flex':'none';
+}
+function saveUsageEdit(){
+  const id=document.getElementById('editUsageId').value;
+  const u=db.usages.find(x=>x.id===id);if(!u)return;
+  u.type=document.getElementById('editUsageType').value;
+  u.date=document.getElementById('editUsageDate').value;
+  u.note=document.getElementById('editUsageNote').value.trim();
+  if(u.type==='finish'){
+    const fd=document.getElementById('editUsageUntil').value;
+    u.finishedDate=fd||u.date;
+    // update linked batch finishedDate too
+    if(u.batchId){const r=db.restocks.find(x=>x.id===u.batchId);if(r)r.finishedDate=u.finishedDate;}
+  }
+  saveLocal();autoSync();render();
+  closeModal('editUsageModal');
+  toast('✅ 使用记录已更新');
+}
+
+// ═══════════════════════════════════════════
+//  VOLUME PRICING TIERS
+// ═══════════════════════════════════════════
+let tierCount = 0;
+function initTiers(){ tierCount=0; document.getElementById('tierRows').innerHTML=''; document.getElementById('tierSummary').textContent=''; }
+
+function addTierRow(minQty='', unitPrice='') {
+  tierCount++;
+  const n = tierCount;
+  const div = document.createElement('div');
+  div.className = 'tier-row';
+  div.id = 'tier'+n;
+  div.innerHTML = `
+    <input type="checkbox" class="tier-check" id="tierCheck${n}" onchange="onTierCheck(${n})">
+    <div class="form-group" style="margin:0">
+      <label>最少买几瓶</label>
+      <input type="number" id="tierQty${n}" value="${minQty}" min="1" placeholder="如：3" oninput="recalcTiers()">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label>此档单价 (RM)</label>
+      <input type="number" id="tierPrice${n}" value="${unitPrice}" step="0.01" placeholder="如：79.20" oninput="recalcTiers();syncTierToPrice(${n})">
+    </div>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+      <span class="tier-savings" id="tierSaving${n}"></span>
+      <button type="button" class="btn btn-danger btn-sm" onclick="removeTierRow(${n})" style="padding:4px 10px">✕</button>
+    </div>
+  `;
+  document.getElementById('tierRows').appendChild(div);
+  recalcTiers();
+}
+
+function removeTierRow(n){ const el=document.getElementById('tier'+n); if(el)el.remove(); recalcTiers(); }
+
+function onTierCheck(n) {
+  // uncheck all others
+  for(let i=1;i<=tierCount;i++){
+    const cb=document.getElementById('tierCheck'+i);
+    if(cb && i!==n) cb.checked=false;
+    const row=document.getElementById('tier'+i);
+    if(row) row.classList.remove('selected');
+  }
+  const row=document.getElementById('tier'+n);
+  if(row) row.classList.toggle('selected', document.getElementById('tierCheck'+n).checked);
+  syncTierToPrice(n);
+  recalcTiers();
+}
+
+function syncTierToPrice(n) {
+  const cb=document.getElementById('tierCheck'+n);
+  if(cb && cb.checked){
+    const price=document.getElementById('tierPrice'+n).value;
+    const qty=document.getElementById('tierQty'+n).value;
+    if(price) document.getElementById('restockPrice').value=price;
+    if(qty)   document.getElementById('restockQty').value=qty;
+  }
+}
+
+function recalcTiers() {
+  const origPrice = parseFloat(document.getElementById('restockOrigPrice').value)||0;
+  let summary = '';
+  for(let i=1;i<=tierCount;i++){
+    const el=document.getElementById('tier'+i); if(!el)continue;
+    const p=parseFloat(document.getElementById('tierPrice'+i).value)||0;
+    const q=parseInt(document.getElementById('tierQty'+i).value)||0;
+    const sEl=document.getElementById('tierSaving'+i);
+    if(origPrice>0 && p>0 && p<origPrice){
+      const savedPct=((origPrice-p)/origPrice*100).toFixed(0);
+      const savedAmt=(origPrice-p).toFixed(2);
+      sEl.textContent=`省 RM${savedAmt} / 瓶 (${savedPct}% off)`;
+    } else { sEl.textContent=''; }
+  }
+  // selected tier summary
+  for(let i=1;i<=tierCount;i++){
+    const cb=document.getElementById('tierCheck'+i);
+    if(cb && cb.checked){
+      const p=parseFloat(document.getElementById('tierPrice'+i).value)||0;
+      const q=parseInt(document.getElementById('tierQty'+i).value)||0;
+      if(q&&p) summary=`✅ 已选：买 ${q} 瓶，单价 RM${p.toFixed(2)}${origPrice>0?`，比原价省 RM${(origPrice-p).toFixed(2)}/瓶`:''}`;
+    }
+  }
+  document.getElementById('tierSummary').textContent=summary;
+}
+
+function getSelectedTier() {
+  for(let i=1;i<=tierCount;i++){
+    const cb=document.getElementById('tierCheck'+i);
+    if(cb && cb.checked){
+      return {
+        minQty: document.getElementById('tierQty'+i).value,
+        unitPrice: document.getElementById('tierPrice'+i).value
+      };
+    }
+  }
+  return null;
+}
+
+function getAllTiers() {
+  const tiers=[];
+  for(let i=1;i<=tierCount;i++){
+    const el=document.getElementById('tier'+i); if(!el)continue;
+    const q=document.getElementById('tierQty'+i).value;
+    const p=document.getElementById('tierPrice'+i).value;
+    const checked=document.getElementById('tierCheck'+i).checked;
+    if(q||p) tiers.push({minQty:q,unitPrice:p,selected:checked});
+  }
+  return tiers;
+}
+
+// ═══════════════════════════════════════════
+//  RESTOCK
+// ═══════════════════════════════════════════
+function populateRestockSelect() {
+  const s=document.getElementById('restockProduct');
+  s.innerHTML='<option value="">— 选择产品 —</option>'+db.products.sort((a,b)=>a.brand.localeCompare(b.brand)).map(p=>`<option value="${p.id}">${p.brand} · ${p.name}</option>`).join('');
+  initTiers();
+}
+function fillRestockInfo() {
+  const id=document.getElementById('restockProduct').value;
+  const p=db.products.find(x=>x.id===id);if(!p)return;
+  document.getElementById('restockPrice').value=p.price||'';
+  if(!document.getElementById('restockDate').value) document.getElementById('restockDate').value=new Date().toISOString().slice(0,10);
+}
+function genBatchCode(pId){const c=db.restocks.filter(r=>r.productId===pId).length+1;return '#'+String(c).padStart(3,'0');}
+function addRestock() {
+  const pId=document.getElementById('restockProduct').value;
+  if(!pId){toast('⚠️ 请选择产品');return;}
+  const qty=parseInt(document.getElementById('restockQty').value)||1;
+  const arrived=document.getElementById('restockArrived').value;
+  const price=document.getElementById('restockPrice').value;
+  const origPrice=document.getElementById('restockOrigPrice').value;
+  const platform=document.getElementById('restockPlatform').value.trim();
+  if(platform) savePlatform(platform);
+  const batchCode=genBatchCode(pId);
+  const r={
+    id:uuid(),productId:pId,
+    batchCode,
+    date:document.getElementById('restockDate').value,
+    qty, qtyRemain: arrived==='arrived'?qty:0,
+    price,origPrice,
+    platform,
+    expiry:document.getElementById('restockExpiry').value,
+    arrived,
+    batchStatus: arrived==='arrived'?'arrived':'transit',
+    promoType:document.getElementById('restockPromoType').value,
+    promoValue:document.getElementById('restockPromoValue').value,
+    promoName:document.getElementById('restockPromoName').value,
+    promoCode:document.getElementById('restockPromoCode').value,
+    note:document.getElementById('restockNote').value.trim(),
+    tiers:getAllTiers()
+  };
+  db.restocks.push(r);
+  saveLocal();autoSync();render();
+  const saved=origPrice&&parseFloat(origPrice)>parseFloat(price)?(parseFloat(origPrice)-parseFloat(price))*qty:0;
+  toast(arrived==='arrived'?`✅ 批次 ${batchCode} 已到货${saved>0?'，省了 RM'+saved.toFixed(2):''}` : `🚚 批次 ${batchCode} 已登记，等待到货`);
+  ['restockProduct','restockPrice','restockOrigPrice','restockPromoValue','restockPromoName','restockPromoCode','restockNote','restockPlatform','restockExpiry'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('restockQty').value=1;
+  document.getElementById('restockPromoType').value='';
+  initTiers();
+}
+function markArrived(id){
+  const r=db.restocks.find(x=>x.id===id);if(!r)return;
+  document.getElementById('arrivedRestockId').value=id;
+  document.getElementById('arrivedExpiry').value=r.expiry||'';
+  openModal('arrivedModal');
+}
+function editExpiry(id){
+  const r=db.restocks.find(x=>x.id===id);if(!r)return;
+  document.getElementById('arrivedRestockId').value=id;
+  document.getElementById('arrivedExpiry').value=r.expiry||'';
+  openModal('arrivedModal');
+}
+function confirmArrived(){
+  const id=document.getElementById('arrivedRestockId').value;
+  const expiry=document.getElementById('arrivedExpiry').value;
+  const r=db.restocks.find(x=>x.id===id);if(!r)return;
+  const wasTransit=r.arrived==='transit';
+  r.arrived='arrived';
+  r.batchStatus='arrived';
+  if(expiry) r.expiry=expiry;
+  if(wasTransit){
+    r.qtyRemain=r.qty;
+  }
+  saveLocal();autoSync();render();
+  closeModal('arrivedModal');
+  toast('✅ 批次'+(r.batchCode?' '+r.batchCode:'')+'已到货，库存已更新'+(expiry?'，截止日期已记录':''));
+}
+function deleteRestock(id){if(!confirm('删除此进货记录？'))return;db.restocks=db.restocks.filter(r=>r.id!==id);saveLocal();autoSync();renderRecords();renderDashboard();toast('🗑 已删除');}
+
+// ═══════════════════════════════════════════
+//  RECORDS
+// ═══════════════════════════════════════════
+function renderRecords() {
+  const q=document.getElementById('recSearch').value.toLowerCase();
+  const pf=document.getElementById('recPlatformFilter').value.trim().toLowerCase();
+  const sf=document.getElementById('recStatusFilter').value;
+  let recs=[...db.restocks].sort((a,b)=>new Date(b.date)-new Date(a.date)).filter(r=>{
+    const p=db.products.find(x=>x.id===r.productId);
+    const lbl=p?`${p.brand} ${p.name}`:'';
+    if(q&&!lbl.toLowerCase().includes(q))return false;
+    if(pf&&!(r.platform||'').toLowerCase().includes(pf))return false;
+    if(sf&&r.arrived!==sf)return false;
+    return true;
+  });
+  document.getElementById('recordsEmpty').style.display=recs.length?'none':'block';
+  document.getElementById('recordsBody').innerHTML=recs.map(r=>{
+    const p=db.products.find(x=>x.id===r.productId);
+    const total=r.qty*(parseFloat(r.price)||0);
+    const saved=r.origPrice&&parseFloat(r.origPrice)>parseFloat(r.price)?(parseFloat(r.origPrice)-parseFloat(r.price))*r.qty:0;
+    const ab=r.arrived==='arrived'?'<span class="tag" style="background:#d1fae5;color:#065f46;border-color:#a7f3d0">✅ 已到货</span>':'<span class="tag" style="background:#dbeafe;color:#1e40af;border-color:#bfdbfe">🚚 在途中</span>';
+    const promoHtml=(()=>{
+      let parts=[];
+      if(r.promoType) parts.push(`<span class="discount-tag">🏷 ${r.promoName||r.promoType}${r.promoValue?' '+r.promoValue:''}</span>${r.promoCode?`<br><span style="font-size:10px;color:var(--text3)">码：${r.promoCode}</span>`:''}`);
+      if(r.tiers&&r.tiers.length){
+        const sel=r.tiers.find(t=>t.selected);
+        const origP=parseFloat(r.origPrice)||0;
+        const tiersHtml=r.tiers.map(t=>{
+          const isSelected=t.selected;
+          const savedAmt=origP&&parseFloat(t.unitPrice)<origP?(origP-parseFloat(t.unitPrice)).toFixed(2):null;
+          return `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;font-size:11px">
+            <span style="color:${isSelected?'#065f46':'var(--text3)'};font-size:13px">${isSelected?'✅':'○'}</span>
+            <span style="${isSelected?'font-weight:700;color:var(--text)':'color:var(--text3)'}">买${t.minQty||'?'}瓶 → RM${parseFloat(t.unitPrice||0).toFixed(2)}/瓶${savedAmt?`<span style="color:#065f46"> (省RM${savedAmt})</span>`:''}${isSelected?' ← 本次':''}
+            </span>
+          </div>`;
+        }).join('');
+        parts.push(`<div style="margin-top:4px">${tiersHtml}</div>`);
+      }
+      return parts.length?parts.join(''):'—';
+    })();
+    return `<tr>
+      <td><span class="batch-code">${r.batchCode||'—'}</span></td>
+      <td style="font-weight:600;min-width:130px">${p?p.name:'（已删除）'}</td>
+      <td style="min-width:90px"><span style="color:var(--accent);font-weight:700">${p?p.brand:'—'}</span></td>
+      <td style="white-space:nowrap">${r.date||'—'}</td>
+      <td>${r.qty}</td>
+      <td style="min-width:110px">RM ${parseFloat(r.price||0).toFixed(2)}<br><small style="color:var(--text3)">共 RM ${total.toFixed(2)}</small>${saved>0?`<br><small style="color:#065f46">省 RM ${saved.toFixed(2)}</small>`:''}</td>
+      <td style="min-width:160px">${promoHtml}</td>
+      <td style="white-space:nowrap">${r.platform||'—'}</td>
+      <td style="white-space:nowrap;min-width:90px">${ab}</td>
+      <td style="font-size:12px;color:var(--text3);min-width:80px">${r.note||''}</td>
+      <td style="white-space:nowrap;min-width:110px">
+        <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
+          ${r.arrived==='transit'?`<button class="btn btn-success btn-sm" onclick="markArrived('${r.id}')">✅ 到货</button>`:`<button class="btn btn-secondary btn-sm" onclick="editExpiry('${r.id}')">📅 ${r.expiry||'填截止日期'}</button>`}
+          <button class="btn btn-danger btn-sm" onclick="deleteRestock('${r.id}')">🗑 删除</button>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════
+//  DEAL CALCULATOR
+// ═══════════════════════════════════════════
+let dealRowCount=0;
+function initDealRows(){document.getElementById('dealRows').innerHTML='';dealRowCount=0;addDealRow();addDealRow();}
+function populateDealSelect() {
+  const s=document.getElementById('dealProduct');
+  s.innerHTML='<option value="">— 不选产品 —</option>'+db.products.sort((a,b)=>a.brand.localeCompare(b.brand)).map(p=>`<option value="${p.id}">${p.brand} · ${p.name}</option>`).join('');
+}
+function addDealRow() {
+  dealRowCount++;
+  const div=document.createElement('div');
+  div.id='dealRow'+dealRowCount;
+  div.style.cssText='background:var(--bg);border:1.5px solid var(--border);border-radius:var(--rs);padding:16px;margin-bottom:10px';
+  div.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;color:var(--text2)">方案 ${dealRowCount}</div>
+      <button class="btn btn-danger btn-sm" onclick="removeDealRow(${dealRowCount})">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px">
+      <div class="form-group"><label>方案名称</label><input type="text" id="dn${dealRowCount}" placeholder="如：Shopee 11.11"></div>
+      <div class="form-group"><label>数量（瓶）</label><input type="number" id="dq${dealRowCount}" value="1" min="1"></div>
+      <div class="form-group"><label>总价 (RM)</label><input type="number" id="dp${dealRowCount}" placeholder="0.00" step="0.01"></div>
+      <div class="form-group">
+        <label>优惠类型</label>
+        <select id="dt${dealRowCount}" onchange="applyDealDiscount(${dealRowCount})">
+          <option value="">无额外优惠</option>
+          <option value="percent">折扣 (%)</option>
+          <option value="flat">直减 (RM)</option>
+          <option value="cashback">返现 (RM)</option>
+          <option value="bundle">买N送M</option>
+        </select>
+      </div>
+      <div class="form-group"><label>优惠值</label><input type="text" id="dv${dealRowCount}" placeholder="如：20、5" oninput="applyDealDiscount(${dealRowCount})"></div>
+      <div class="form-group"><label>活动/备注</label><input type="text" id="dr${dealRowCount}" placeholder="如：会员日、满减"></div>
+      <div class="form-group"><label>赠品</label><input type="text" id="dg${dealRowCount}" placeholder="如：送旅行套装"></div>
+    </div>
+    <div id="dealCalc${dealRowCount}" style="margin-top:10px;font-size:12px;color:var(--text2)"></div>
+  `;
+  document.getElementById('dealRows').appendChild(div);
+}
+function removeDealRow(n){const el=document.getElementById('dealRow'+n);if(el)el.remove();}
+function applyDealDiscount(n) {
+  const type=document.getElementById('dt'+n).value;
+  const val=parseFloat(document.getElementById('dv'+n).value)||0;
+  const totalPrice=parseFloat(document.getElementById('dp'+n).value)||0;
+  const qty=parseInt(document.getElementById('dq'+n).value)||1;
+  if(!totalPrice||!type){document.getElementById('dealCalc'+n).innerHTML='';return;}
+  let finalTotal=totalPrice;
+  if(type==='percent') finalTotal=totalPrice*(1-val/100);
+  else if(type==='flat') finalTotal=totalPrice-val;
+  else if(type==='cashback') finalTotal=totalPrice-val;
+  else if(type==='bundle') {
+    // e.g. buy 2 get 1 free: val = extra free bottles
+    const freeQty=parseFloat(document.getElementById('dv'+n).value)||0;
+    const effectiveQty=qty+freeQty;
+    document.getElementById('dealCalc'+n).innerHTML=`💡 等效 ${effectiveQty} 瓶，实付 RM${totalPrice.toFixed(2)}，每瓶 RM${(totalPrice/effectiveQty).toFixed(2)}`;
+    return;
+  }
+  const perBottle=finalTotal/qty;
+  document.getElementById('dealCalc'+n).innerHTML=`💡 折后总价 RM${finalTotal.toFixed(2)}，每瓶 RM${perBottle.toFixed(2)}`;
+}
+function calcDeal() {
+  const rows=[];
+  for(let i=1;i<=dealRowCount;i++){
+    const el=document.getElementById('dealRow'+i);if(!el)continue;
+    const name=document.getElementById('dn'+i).value||`方案${i}`;
+    let qty=parseInt(document.getElementById('dq'+i).value)||1;
+    let total=parseFloat(document.getElementById('dp'+i).value)||0;
+    if(!total){continue;}
+    const type=document.getElementById('dt'+i).value;
+    const val=parseFloat(document.getElementById('dv'+i).value)||0;
+    const remark=document.getElementById('dr'+i).value;
+    const gift=document.getElementById('dg'+i).value;
+    let finalTotal=total;
+    let effectiveQty=qty;
+    if(type==='percent') finalTotal=total*(1-val/100);
+    else if(type==='flat') finalTotal=total-val;
+    else if(type==='cashback') finalTotal=total-val;
+    else if(type==='bundle') { effectiveQty=qty+val; }
+    const perBottle=finalTotal/effectiveQty;
+    rows.push({name,qty,effectiveQty,total,finalTotal,perBottle,remark,gift,type,val});
+  }
+  if(rows.length<1){toast('⚠️ 请至少填入一个方案');return;}
+  rows.sort((a,b)=>a.perBottle-b.perBottle);
+  const best=rows[0];
+  let html=`<div style="font-weight:700;font-size:14px;margin-bottom:12px;color:var(--text2)">📊 比较结果（按每瓶单价排序）</div>`;
+  html+=`<div class="deal-options">`;
+  rows.forEach((r,i)=>{
+    const saving=i>0?(r.perBottle-best.perBottle)*r.effectiveQty:0;
+    html+=`<div class="deal-option${i===0?' best':''}">
+      <div>
+        <div class="deal-option-label">${i===0?'🏆 ':''} ${r.name} ${i===0?'<span class="deal-best-badge">最划算</span>':''}</div>
+        <div class="deal-option-details">
+          购 ${r.qty} 瓶${r.effectiveQty>r.qty?` + 送 ${r.effectiveQty-r.qty} 瓶`:''} · 总价 RM${r.total.toFixed(2)}
+          ${r.finalTotal!==r.total?` → 折后 RM${r.finalTotal.toFixed(2)}`:''}
+          ${r.remark?` · ${r.remark}`:''}
+          ${r.gift?` 🎁 赠：${r.gift}`:''}
+          ${saving>0?`<br><span style="color:#b91c1c;font-size:11px">比最划算贵 RM${saving.toFixed(2)}（共 ${r.effectiveQty} 瓶）</span>`:''}
+        </div>
+      </div>
+      <div>
+        <div class="deal-option-price">RM${r.perBottle.toFixed(2)}</div>
+        <div class="deal-option-unit">每瓶</div>
+      </div>
+    </div>`;
+  });
+  html+='</div>';
+
+  // Advice
+  if(rows.length>1){
+    const savings=(rows[rows.length-1].perBottle-best.perBottle);
+    const savingsAmt=savings*best.effectiveQty;
+    html+=`<div class="info-box info-box-green" style="margin-top:12px">
+      💡 选择「${best.name}」最划算，每瓶 RM${best.perBottle.toFixed(2)}。比最贵方案每瓶便宜 RM${savings.toFixed(2)}，买 ${best.effectiveQty} 瓶省约 RM${savingsAmt.toFixed(2)}。
+    </div>`;
+  }
+  document.getElementById('dealResult').innerHTML=html;
+}
+function resetDeal(){initDealRows();document.getElementById('dealResult').innerHTML='';document.getElementById('dealProduct').value='';document.getElementById('dealProductName').value='';}
+
+// ═══════════════════════════════════════════
+//  ADD PRODUCT
+// ═══════════════════════════════════════════
+function addProduct() {
+  const brand=document.getElementById('pBrand').value.trim();
+  const name=document.getElementById('pName').value.trim();
+  if(!brand||!name){toast('⚠️ 请填写品牌和产品名称');return;}
+  const p={
+    id:uuid(),brand,name,
+    category:document.getElementById('pCategory').value,
+    function:document.getElementById('pFunction').value.trim(),
+    size:document.getElementById('pSize').value.trim(),
+    photo:''
+  };
+  db.products.push(p);
+  saveLocal();autoSync();render();
+  toast('✅ 产品已添加！');clearAddForm();
+}
+function clearAddForm(){['pBrand','pName','pFunction','pSize'].forEach(id=>document.getElementById(id).value='');document.getElementById('pCategory').value='护肤';}
+function openEdit(id){const p=db.products.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=id;document.getElementById('editBrand').value=p.brand;document.getElementById('editName').value=p.name;document.getElementById('editCategory').value=p.category||'护肤';document.getElementById('editFunction').value=p.function||'';document.getElementById('editSize').value=p.size||'';document.getElementById('editQty').value=p.qty||0;openModal('editModal');}
+function saveEdit(){const id=document.getElementById('editId').value;const p=db.products.find(x=>x.id===id);if(!p)return;p.brand=document.getElementById('editBrand').value.trim();p.name=document.getElementById('editName').value.trim();p.category=document.getElementById('editCategory').value;p.function=document.getElementById('editFunction').value.trim();p.size=document.getElementById('editSize').value.trim();p.qty=parseInt(document.getElementById('editQty').value)||0;saveLocal();autoSync();render();closeModal('editModal');toast('✅ 已保存');}
+function deleteProduct(id){if(!confirm('确定删除？相关所有记录也会删除。'))return;db.products=db.products.filter(p=>p.id!==id);db.restocks=db.restocks.filter(r=>r.productId!==id);db.usages=db.usages.filter(u=>u.productId!==id);saveLocal();autoSync();render();toast('🗑 已删除');}
+
+// ═══════════════════════════════════════════
+//  PHOTO
+// ═══════════════════════════════════════════
+// photo upload removed
+
+// ═══════════════════════════════════════════
+//  CLOUD SYNC
+// ═══════════════════════════════════════════
+function saveSyncCredentials(){
+  const key=document.getElementById('syncApiKey').value.trim();
+  const bid=document.getElementById('syncBinId').value.trim();
+  if(key) localStorage.setItem('sc_apiKey',key);
+  if(bid) localStorage.setItem('sc_binId',bid);
+  if(key&&bid) updateSyncDot('grey');
+}
+async function syncInit(){
+  const key=document.getElementById('syncApiKey').value.trim();
+  if(!key){toast('⚠️ 请填写 API Key');return;}
+  saveSyncCredentials();
+  toast('⏳ 正在初始化...');
+  try{
+    const res=await fetch('https://api.jsonbin.io/v3/b',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Name':'SkincareDB','X-Bin-Private':'false'},
+      body:JSON.stringify(db)
+    });
+    const data=await res.json();
+    if(!res.ok){
+      toast(`❌ 初始化失败 (${res.status})：${data.message||'请检查 API Key'}`);return;
+    }
+    if(!data.metadata?.id){toast('❌ 初始化失败，请检查 API Key');return;}
+    localStorage.setItem('sc_apiKey',key);
+    localStorage.setItem('sc_binId',data.metadata.id);
+    document.getElementById('syncBinId').value=data.metadata.id;
+    updateSyncDot('green');
+    toast('✅ 初始化成功！Bin ID: '+data.metadata.id);
+  }catch(e){toast('❌ 网络错误: '+e.message);}
+}
+
+async function syncPush(silent=false){
+  const key=localStorage.getItem('sc_apiKey');
+  const bid=localStorage.getItem('sc_binId');
+  if(!key||!bid){if(!silent)toast('⚠️ 请先填写 API Key 和 Bin ID 并点「保存设置」');return;}
+  try{
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${bid}`,{
+      method:'PUT',
+      headers:{'Content-Type':'application/json','X-Master-Key':key},
+      body:JSON.stringify(db)
+    });
+    const data=await res.json();
+    if(!res.ok){
+      updateSyncDot('red');
+      if(!silent)toast(`❌ 推送失败 (${res.status})：${data.message||'请检查 Key 和 Bin ID'}`);
+      return;
+    }
+    updateSyncDot('green');
+    if(!silent)toast('✅ 已推送到云端');
+  }catch(e){
+    updateSyncDot('red');
+    if(!silent)toast('❌ 网络错误: '+e.message);
+  }
+}
+
+async function syncPull(silent=false){
+  const key=localStorage.getItem('sc_apiKey');
+  const bid=localStorage.getItem('sc_binId');
+  if(!key||!bid)return;
+  if(!silent)toast('⏳ 从云端拉取中...');
+  try{
+    const res=await fetch(`https://api.jsonbin.io/v3/b/${bid}/latest`,{
+      headers:{'X-Master-Key':key}
+    });
+    const data=await res.json();
+    if(!res.ok){
+      updateSyncDot('red');
+      document.getElementById('syncLabel').textContent='同步失败';
+      if(!silent)toast(`❌ 拉取失败 (${res.status})：${data.message||'请检查 Key 和 Bin ID'}`);
+      return;
+    }
+    const cloudDb=Object.assign({products:[],restocks:[],usages:[]},data.record);
+    mergeWithCloud(cloudDb);
+    saveLocal();render();
+    updateSyncDot('green');
+    if(!silent)toast('✅ 已从云端同步');
+    else document.getElementById('syncLabel').textContent='已同步';
+    await syncPush(true);
+  }catch(e){
+    updateSyncDot('red');
+    document.getElementById('syncLabel').textContent='同步失败';
+    if(!silent)toast('❌ 网络错误: '+e.message);
+  }
+}
+
+async function autoSync(){
+  const key=localStorage.getItem('sc_apiKey');
+  const bid=localStorage.getItem('sc_binId');
+  if(key&&bid) await syncPush(true);
+}
+function updateSyncDot(s){const d=document.getElementById('syncDot');d.className='sync-dot'+(s==='green'?' ':s==='red'?' red':' grey');document.getElementById('syncLabel').textContent=s==='green'?'已同步':s==='red'?'同步失败':'云端同步';}
+
+// ═══════════════════════════════════════════
+//  MODAL / TOAST / UTIL
+// ═══════════════════════════════════════════
+function openModal(id){document.getElementById(id).classList.add('open');}
+function closeModal(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.modal-overlay').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');}));
+let toastTimer;
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),3200);}
+function uuid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
+
+// ═══════════════════════════════════════════
+//  BRAND COMBOBOX ENGINE
+// ═══════════════════════════════════════════
+function getBrands(){ return [...new Set(db.products.map(p=>p.brand).filter(Boolean))].sort(); }
+
+function buildBrandDropdown(inputId, filter=''){
+  const dd=document.getElementById(inputId+'Dropdown'); if(!dd)return;
+  const brands=getBrands().filter(b=>!filter||b.toLowerCase().includes(filter.toLowerCase()));
+  let html='';
+  if(brands.length) html+=brands.map(b=>{
+    const el=document.createElement('div');
+    el.className='platform-option';
+    el.textContent=b;
+    el.setAttribute('onmousedown',`selectBrand('${inputId}',this.textContent)`);
+    return el.outerHTML;
+  }).join('');
+  const cur=document.getElementById(inputId).value.trim();
+  if(cur && !brands.map(b=>b.toLowerCase()).includes(cur.toLowerCase()))
+    html+=`<div class="platform-add-row" onmousedown="selectBrand('${inputId}',document.getElementById('${inputId}').value.trim())">＋ 新品牌「${cur}」</div>`;
+  if(!html) html=`<div style="padding:10px 13px;font-size:12px;color:var(--text3)">输入品牌名称</div>`;
+  dd.innerHTML=html;
+}
+function openBrandDropdown(inputId){ buildBrandDropdown(inputId,document.getElementById(inputId).value); document.getElementById(inputId+'Dropdown').classList.add('open'); }
+function closeBrandDropdownDelay(inputId){ setTimeout(()=>{ const dd=document.getElementById(inputId+'Dropdown'); if(dd)dd.classList.remove('open'); },200); }
+function toggleBrandDropdown(inputId){ const dd=document.getElementById(inputId+'Dropdown'); if(!dd)return; if(dd.classList.contains('open')) dd.classList.remove('open'); else{ buildBrandDropdown(inputId,''); dd.classList.add('open'); } }
+function filterBrandDropdown(inputId){ buildBrandDropdown(inputId,document.getElementById(inputId).value); document.getElementById(inputId+'Dropdown').classList.add('open'); }
+function selectBrand(inputId,val){ document.getElementById(inputId).value=val; const dd=document.getElementById(inputId+'Dropdown'); if(dd)dd.classList.remove('open'); }
+
+// ═══════════════════════════════════════════
+//  PLATFORM COMBOBOX ENGINE
+// ═══════════════════════════════════════════
+const DEFAULT_PLATFORMS=[];
+function getPlatforms(){return JSON.parse(localStorage.getItem('sc_platforms')||'[]');}
+function savePlatform(name){if(!name)return;let ps=getPlatforms();if(!ps.includes(name)){ps.push(name);localStorage.setItem('sc_platforms',JSON.stringify(ps));}}
+function deletePlatform(name){let ps=getPlatforms().filter(p=>p!==name);localStorage.setItem('sc_platforms',JSON.stringify(ps));}
+function getAllPlatforms(){return getPlatforms();}
+
+function buildPlatformDropdown(inputId,filter=''){
+  const ddId=inputId+'Dropdown';
+  const dd=document.getElementById(ddId);if(!dd)return;
+  const platforms=getAllPlatforms().filter(p=>!filter||p.toLowerCase().includes(filter.toLowerCase()));
+  let html='';
+  if(platforms.length){
+    html+=platforms.map(p=>{
+      const el=document.createElement('div');
+      el.className='platform-option';
+      el.innerHTML=p+`<span class="del-platform">✕</span>`;
+      el.setAttribute('onmousedown',`selectPlatform('${inputId}',this.firstChild.textContent.trim())`);
+      el.querySelector('.del-platform').setAttribute('onmousedown',`event.stopPropagation();delPlatformOption('${inputId}',this.parentNode.firstChild.textContent.trim())`);
+      return el.outerHTML;
+    }).join('');
+  }
+  const cur=document.getElementById(inputId).value.trim();
+  if(cur && !platforms.includes(cur)){
+    html+=`<div class="platform-add-row" onmousedown="selectPlatform('${inputId}',document.getElementById('${inputId}').value.trim())">＋ 添加「${cur}」</div>`;
+  }
+  if(!html) html=`<div style="padding:10px 13px;font-size:12px;color:var(--text3)">输入平台名称后按 Enter 添加</div>`;
+  dd.innerHTML=html;
+}
+
+function openPlatformDropdown(inputId){
+  const dd=document.getElementById(inputId+'Dropdown');if(!dd)return;
+  buildPlatformDropdown(inputId,document.getElementById(inputId).value);
+  dd.classList.add('open');
+}
+function closePlatformDropdownDelay(inputId){setTimeout(()=>{const dd=document.getElementById(inputId+'Dropdown');if(dd)dd.classList.remove('open');},200);}
+function togglePlatformDropdown(inputId){const dd=document.getElementById(inputId+'Dropdown');if(!dd)return;if(dd.classList.contains('open')){dd.classList.remove('open');}else{buildPlatformDropdown(inputId,'');dd.classList.add('open');}}
+function filterPlatformDropdown(inputId){buildPlatformDropdown(inputId,document.getElementById(inputId).value);document.getElementById(inputId+'Dropdown').classList.add('open');}
+function selectPlatform(inputId,val){
+  document.getElementById(inputId).value=val;
+  savePlatform(val);
+  const dd=document.getElementById(inputId+'Dropdown');if(dd)dd.classList.remove('open');
+  // trigger rerender if filter field
+  if(inputId==='recPlatformFilter') renderRecords();
+}
+function delPlatformOption(inputId,name){deletePlatform(name);buildPlatformDropdown(inputId,document.getElementById(inputId).value);}
+
+// handle Enter to add new platform
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const active=document.activeElement;
+    if(active&&(active.id==='restockPlatform'||active.id==='recPlatformFilter')){
+      const val=active.value.trim();
+      if(val){savePlatform(val);const dd=document.getElementById(active.id+'Dropdown');if(dd)dd.classList.remove('open');}
+    }
+  }
+});
+
+// ═══════════════════════════════════════════
+//  SAMPLE DATA
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+//  PLATFORM MANAGEMENT (Settings)
+// ═══════════════════════════════════════════
+function renderSettingsProducts() {
+  const q=(document.getElementById('settingsProductSearch')?.value||'').toLowerCase();
+  const list=document.getElementById('settingsProductList');
+  const empty=document.getElementById('settingsProductEmpty');
+  let prods=db.products.filter(p=>!q||(p.brand+' '+p.name).toLowerCase().includes(q))
+    .sort((a,b)=>a.brand.localeCompare(b.brand)||a.name.localeCompare(b.name));
+  if(!prods.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=prods.map(p=>{
+    const restockCount=db.restocks.filter(r=>r.productId===p.id).length;
+    const usageCount=db.usages.filter(u=>u.productId===p.id).length;
+    return `<div class="platform-list-item">
+      <div>
+        <div class="platform-list-name">${p.brand} · ${p.name}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.category||''} ${p.size?'· '+p.size:''} · 进货${restockCount}批 · 使用${usageCount}次</div>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteProductFromSettings('${p.id}')">🗑 删除</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteProductFromSettings(id){
+  const p=db.products.find(x=>x.id===id);
+  if(!p)return;
+  if(!confirm(`确定删除「${p.brand} · ${p.name}」？\n该产品的所有进货记录和使用记录也会一并删除。`))return;
+  db.products=db.products.filter(x=>x.id!==id);
+  db.restocks=db.restocks.filter(r=>r.productId!==id);
+  db.usages=db.usages.filter(u=>u.productId!==id);
+  saveLocal();autoSync();render();
+  renderSettingsProducts();
+  toast(`🗑 已删除「${p.brand} · ${p.name}」`);
+}
+function renderPlatformList() {
+  const ps = getPlatforms();
+  const list = document.getElementById('platformList');
+  const empty = document.getElementById('platformEmpty');
+  if (!ps.length) { list.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  list.innerHTML = ps.map((p,i)=>`
+    <div class="platform-list-item">
+      <span class="platform-list-name">🏪 ${p}</span>
+      <button class="btn btn-danger btn-sm" onclick="deletePlatformFromSettings(this.getAttribute('data-name'))" data-name="${p}">🗑 删除</button>
+    </div>
+  `).join('');
+}
+
+function addPlatformManual() {
+  const input = document.getElementById('newPlatformInput');
+  const val = input.value.trim();
+  if (!val) { toast('⚠️ 请输入平台名称'); return; }
+  const ps = getPlatforms();
+  if (ps.includes(val)) { toast('⚠️ 该平台已存在'); return; }
+  savePlatform(val);
+  input.value = '';
+  renderPlatformList();
+  toast(`✅ 已添加「${val}」`);
+}
+
+function deletePlatformFromSettings(name) {
+  if (!confirm(`确定删除平台「${name}」？\n（已有的进货记录不受影响）`)) return;
+  deletePlatform(name);
+  renderPlatformList();
+  toast(`🗑 已删除「${name}」`);
+}
+
+function clearAllData() {
+  if (!confirm('⚠️ 确定要清空所有数据吗？\n\n产品、进货记录、使用记录将全部删除，此操作无法撤销。')) return;
+  if (!confirm('再次确认：真的要清空所有数据？')) return;
+  db = { products:[], restocks:[], usages:[] };
+  saveLocal(); autoSync(); render();
+  toast('🗑 所有数据已清空');
+}
+
+init();
+</script>
+</body>
+</html>
