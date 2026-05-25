@@ -307,8 +307,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
     </div>
     <select class="filter-select" id="invCatFilter" onchange="renderInventory()">
       <option value="">全部分类</option>
-      <option>护肤</option><option>洗发</option><option>沐浴</option>
-      <option>彩妆</option><option>身体护理</option><option>其他</option>
+      <option>护肤</option>
     </select>
     <select class="filter-select" id="invStatusFilter" onchange="renderInventory()">
       <option value="">全部状态</option>
@@ -601,8 +600,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
       <div class="form-group">
         <label>产品分类</label>
         <select id="pCategory">
-          <option>护肤</option><option>洗发</option><option>沐浴</option>
-          <option>彩妆</option><option>身体护理</option><option>其他</option>
+          <option>护肤</option>
         </select>
       </div>
       <div class="form-group"><label>产品功效</label><input type="text" id="pFunction" placeholder="如：保湿、控油、美白"></div>
@@ -634,6 +632,21 @@ tr:hover td{background:rgba(196,115,90,.04)}
     <div id="settingsProductEmpty" style="display:none;text-align:center;padding:30px;color:var(--text3);font-size:13px">
       暂无产品
     </div>
+  </div>
+
+  <!-- Category Management -->
+  <div class="card">
+    <div class="card-title">🏷️ 产品分类管理</div>
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">管理产品分类清单，添加的分类会出现在所有分类下拉选择中。</p>
+    <div style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end">
+      <div class="form-group" style="flex:1;margin:0">
+        <label>新增分类</label>
+        <input type="text" id="newCategoryInput" placeholder="如：香水、口腔护理..." onkeydown="if(event.key==='Enter')addCategoryManual()">
+      </div>
+      <button class="btn btn-primary" onclick="addCategoryManual()">＋ 添加</button>
+    </div>
+    <div id="categoryList"></div>
+    <div id="categoryEmpty" style="display:none;text-align:center;padding:30px;color:var(--text3);font-size:13px">暂无分类</div>
   </div>
 
   <!-- Platform Management -->
@@ -689,7 +702,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
         </div>
       </div>
       <div class="form-group"><label>产品名称</label><input type="text" id="editName"></div>
-      <div class="form-group"><label>分类</label><select id="editCategory"><option>护肤</option><option>洗发</option><option>沐浴</option><option>彩妆</option><option>身体护理</option><option>其他</option></select></div>
+      <div class="form-group"><label>分类</label><select id="editCategory"><option>护肤</option></select></div>
       <div class="form-group"><label>功效</label><input type="text" id="editFunction"></div>
       <div class="form-group"><label>容量规格</label><input type="text" id="editSize"></div>
       <div class="form-group"><label>当前库存数量</label><input type="number" id="editQty" min="0"></div>
@@ -875,6 +888,21 @@ tr:hover td{background:rgba(196,115,90,.04)}
   </div>
 </div>
 
+<!-- ══ MODAL: CATEGORY DELETE ══ -->
+<div class="modal-overlay" id="catDeleteModal">
+  <div class="modal" style="max-width:500px">
+    <div class="modal-header">
+      <div class="modal-title">⚠️ 删除分类「<span id="catDeleteName"></span>」</div>
+      <button class="modal-close" onclick="closeModal('catDeleteModal')">✕</button>
+    </div>
+    <div id="catDeleteWarningBody"></div>
+    <div class="btn-row" style="margin-top:18px">
+      <button class="btn btn-danger" id="catDeleteConfirmBtn">🗑 更新分类并删除</button>
+      <button class="btn btn-secondary" onclick="closeModal('catDeleteModal')">取消</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -945,7 +973,7 @@ function showTab(id, btn) {
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+id).classList.add('active');
   if (btn) btn.classList.add('active');
-  const renders = {dashboard:renderDashboard,inventory:renderInventory,usage:()=>{populateUsageSelect();renderUsage()},restock:populateRestockSelect,records:renderRecords,deal:()=>{populateDealSelect()},settings:()=>{renderPlatformList();renderSettingsProducts();}};
+  const renders = {dashboard:renderDashboard,inventory:renderInventory,usage:()=>{populateUsageSelect();renderUsage()},restock:populateRestockSelect,records:renderRecords,deal:()=>{populateDealSelect()},settings:()=>{renderCategoryList();renderPlatformList();renderSettingsProducts();}};
   if (renders[id]) renders[id]();
 }
 
@@ -954,6 +982,7 @@ function showTab(id, btn) {
 // ═══════════════════════════════════════════
 function render() {
   syncAllQty();
+  populateCategorySelects();
   renderDashboard(); renderInventory(); renderCatTabs();
   populateRestockSelect(); populateUsageSelect(); populateDealSelect();
   renderRecords(); renderUsage();
@@ -1999,7 +2028,7 @@ function addProduct() {
   saveLocal();autoSync();render();
   toast('✅ 产品已添加！');clearAddForm();
 }
-function clearAddForm(){['pBrand','pName','pFunction','pSize'].forEach(id=>document.getElementById(id).value='');document.getElementById('pCategory').value='护肤';}
+function clearAddForm(){['pBrand','pName','pFunction','pSize'].forEach(id=>document.getElementById(id).value='');const cats=getCategories();document.getElementById('pCategory').value=cats[0]||'';document.getElementById('photoPreview') && (document.getElementById('photoPreview').style.display='none');}
 function openEdit(id){const p=db.products.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=id;document.getElementById('editBrand').value=p.brand;document.getElementById('editName').value=p.name;document.getElementById('editCategory').value=p.category||'护肤';document.getElementById('editFunction').value=p.function||'';document.getElementById('editSize').value=p.size||'';document.getElementById('editQty').value=p.qty||0;openModal('editModal');}
 function saveEdit(){const id=document.getElementById('editId').value;const p=db.products.find(x=>x.id===id);if(!p)return;p.brand=document.getElementById('editBrand').value.trim();p.name=document.getElementById('editName').value.trim();p.category=document.getElementById('editCategory').value;p.function=document.getElementById('editFunction').value.trim();p.size=document.getElementById('editSize').value.trim();p.qty=parseInt(document.getElementById('editQty').value)||0;saveLocal();autoSync();render();closeModal('editModal');toast('✅ 已保存');}
 function deleteProduct(id){if(!confirm('确定删除？相关所有记录也会删除。'))return;db.products=db.products.filter(p=>p.id!==id);db.restocks=db.restocks.filter(r=>r.productId!==id);db.usages=db.usages.filter(u=>u.productId!==id);saveLocal();autoSync();render();toast('🗑 已删除');}
@@ -2141,6 +2170,109 @@ function closeBrandDropdownDelay(inputId){ setTimeout(()=>{ const dd=document.ge
 function toggleBrandDropdown(inputId){ const dd=document.getElementById(inputId+'Dropdown'); if(!dd)return; if(dd.classList.contains('open')) dd.classList.remove('open'); else{ buildBrandDropdown(inputId,''); dd.classList.add('open'); } }
 function filterBrandDropdown(inputId){ buildBrandDropdown(inputId,document.getElementById(inputId).value); document.getElementById(inputId+'Dropdown').classList.add('open'); }
 function selectBrand(inputId,val){ document.getElementById(inputId).value=val; const dd=document.getElementById(inputId+'Dropdown'); if(dd)dd.classList.remove('open'); }
+
+// ═══════════════════════════════════════════
+//  CATEGORY ENGINE
+// ═══════════════════════════════════════════
+const DEFAULT_CATEGORIES=['护肤','洗发','沐浴','彩妆','身体护理','其他'];
+function getCategories(){const s=localStorage.getItem('sc_categories');return s?JSON.parse(s):[...DEFAULT_CATEGORIES];}
+function saveCategories(cats){localStorage.setItem('sc_categories',JSON.stringify(cats));}
+function addCategory(name){if(!name)return;let cats=getCategories();if(!cats.includes(name)){cats.push(name);saveCategories(cats);}}
+function deleteCategory(name){let cats=getCategories().filter(c=>c!==name);saveCategories(cats);}
+
+function populateCategorySelects(){
+  const cats=getCategories();
+  const opts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  ['pCategory','editCategory'].forEach(id=>{
+    const el=document.getElementById(id);if(!el)return;
+    const cur=el.value;
+    el.innerHTML=opts;
+    if(cats.includes(cur)) el.value=cur;
+  });
+  // inventory filter
+  const inv=document.getElementById('invCatFilter');
+  if(inv){
+    const cur=inv.value;
+    inv.innerHTML='<option value="">全部分类</option>'+opts;
+    if(cats.includes(cur)) inv.value=cur;
+  }
+}
+
+function renderCategoryList(){
+  const cats=getCategories();
+  const list=document.getElementById('categoryList');
+  const empty=document.getElementById('categoryEmpty');
+  if(!cats.length){list.innerHTML='';empty.style.display='block';return;}
+  empty.style.display='none';
+  list.innerHTML=cats.map(c=>`
+    <div class="platform-list-item">
+      <span class="platform-list-name">🏷️ ${c}</span>
+      <button class="btn btn-danger btn-sm" onclick="deleteCategoryFromSettings(this.getAttribute('data-name'))" data-name="${c}">🗑 删除</button>
+    </div>
+  `).join('');
+}
+
+function addCategoryManual(){
+  const input=document.getElementById('newCategoryInput');
+  const val=input.value.trim();
+  if(!val){toast('⚠️ 请输入分类名称');return;}
+  if(getCategories().includes(val)){toast('⚠️ 该分类已存在');return;}
+  addCategory(val);
+  input.value='';
+  renderCategoryList();
+  populateCategorySelects();
+  toast(`✅ 已添加「${val}」`);
+}
+
+function deleteCategoryFromSettings(name){
+  const using=db.products.filter(p=>p.category===name);
+  if(using.length>0){
+    // Show which products use this category with inline reassign
+    const cats=getCategories().filter(c=>c!==name);
+    const catOpts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    const productRows=using.map(p=>`
+      <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <div style="flex:1;min-width:140px">
+          <div style="font-weight:600;font-size:13px">${p.brand} · ${p.name}</div>
+          <div style="font-size:11px;color:var(--text3)">目前分类：${p.category}</div>
+        </div>
+        <select id="reassignCat_${p.id}" style="padding:7px 10px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:13px;background:var(--bg)">
+          ${catOpts}
+        </select>
+      </div>
+    `).join('');
+    document.getElementById('catDeleteWarningBody').innerHTML=`
+      <p style="font-size:13px;color:var(--text2);margin-bottom:14px">以下 <strong>${using.length}</strong> 个产品正在使用「${name}」分类，请先为它们选择新分类，再删除：</p>
+      ${productRows}
+    `;
+    document.getElementById('catDeleteName').textContent=name;
+    document.getElementById('catDeleteConfirmBtn').onclick=()=>confirmDeleteCategory(name, using.map(p=>p.id));
+    openModal('catDeleteModal');
+  } else {
+    if(!confirm(`确定删除分类「${name}」？`))return;
+    deleteCategory(name);
+    renderCategoryList();
+    populateCategorySelects();
+    toast(`🗑 已删除「${name}」`);
+  }
+}
+
+function confirmDeleteCategory(name, productIds){
+  // Apply reassigned categories
+  productIds.forEach(pid=>{
+    const sel=document.getElementById('reassignCat_'+pid);
+    if(sel){
+      const p=db.products.find(x=>x.id===pid);
+      if(p) p.category=sel.value;
+    }
+  });
+  deleteCategory(name);
+  saveLocal();autoSync();render();
+  renderCategoryList();
+  populateCategorySelects();
+  closeModal('catDeleteModal');
+  toast(`🗑 已删除「${name}」，${productIds.length} 个产品已更新分类`);
+}
 
 // ═══════════════════════════════════════════
 //  PLATFORM COMBOBOX ENGINE
