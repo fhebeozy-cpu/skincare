@@ -2030,7 +2030,7 @@ function addProduct() {
 }
 function clearAddForm(){['pBrand','pName','pFunction','pSize'].forEach(id=>document.getElementById(id).value='');const cats=getCategories();document.getElementById('pCategory').value=cats[0]||'';document.getElementById('photoPreview') && (document.getElementById('photoPreview').style.display='none');}
 function openEdit(id){const p=db.products.find(x=>x.id===id);if(!p)return;document.getElementById('editId').value=id;document.getElementById('editBrand').value=p.brand;document.getElementById('editName').value=p.name;document.getElementById('editCategory').value=p.category||'护肤';document.getElementById('editFunction').value=p.function||'';document.getElementById('editSize').value=p.size||'';document.getElementById('editQty').value=p.qty||0;openModal('editModal');}
-function saveEdit(){const id=document.getElementById('editId').value;const p=db.products.find(x=>x.id===id);if(!p)return;p.brand=document.getElementById('editBrand').value.trim();p.name=document.getElementById('editName').value.trim();p.category=document.getElementById('editCategory').value;p.function=document.getElementById('editFunction').value.trim();p.size=document.getElementById('editSize').value.trim();p.qty=parseInt(document.getElementById('editQty').value)||0;saveLocal();autoSync();render();closeModal('editModal');toast('✅ 已保存');}
+function saveEdit(){const id=document.getElementById('editId').value;const p=db.products.find(x=>x.id===id);if(!p)return;p.brand=document.getElementById('editBrand').value.trim();p.name=document.getElementById('editName').value.trim();p.category=document.getElementById('editCategory').value;p.function=document.getElementById('editFunction').value.trim();p.size=document.getElementById('editSize').value.trim();p.qty=parseInt(document.getElementById('editQty').value)||0;saveLocal();autoSync();render();if(document.getElementById('settingsProductList'))renderSettingsProducts();closeModal('editModal');toast('✅ 已保存');}
 function deleteProduct(id){if(!confirm('确定删除？相关所有记录也会删除。'))return;db.products=db.products.filter(p=>p.id!==id);db.restocks=db.restocks.filter(r=>r.productId!==id);db.usages=db.usages.filter(u=>u.productId!==id);saveLocal();autoSync();render();toast('🗑 已删除');}
 
 // ═══════════════════════════════════════════
@@ -2352,11 +2352,14 @@ function renderSettingsProducts() {
     const restockCount=db.restocks.filter(r=>r.productId===p.id).length;
     const usageCount=db.usages.filter(u=>u.productId===p.id).length;
     return `<div class="platform-list-item">
-      <div>
+      <div style="flex:1">
         <div class="platform-list-name">${p.brand} · ${p.name}</div>
-        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.category||''} ${p.size?'· '+p.size:''} · 进货${restockCount}批 · 使用${usageCount}次</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">${p.category||''} ${p.size?'· '+p.size:''} ${p.function?'· '+p.function:''} · 进货${restockCount}批 · 使用${usageCount}次</div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteProductFromSettings('${p.id}')">🗑 删除</button>
+      <div style="display:flex;gap:6px;flex-shrink:0">
+        <button class="btn btn-secondary btn-sm" onclick="openEdit('${p.id}')">✏️ 编辑</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteProductFromSettings('${p.id}')">🗑 删除</button>
+      </div>
     </div>`;
   }).join('');
 }
