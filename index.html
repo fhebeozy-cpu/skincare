@@ -1375,10 +1375,25 @@ function openDetail(id) {
 
 function markBatchInUse(rid){
   const r=db.restocks.find(x=>x.id===rid);if(!r)return;
-  r.batchStatus='in_use';
-  saveLocal();autoSync();render();
-  openDetail(r.productId);
-  toast('🧴 批次 '+r.batchCode+' 已开始使用，库存 -1');
+  closeModal('detailModal');
+  // Navigate to usage tab
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-usage').classList.add('active');
+  document.querySelectorAll('.tab-btn').forEach(b=>{if(b.textContent.includes('使用记录'))b.classList.add('active');});
+  // Pre-fill usage form
+  populateUsageSelect();
+  document.getElementById('uProduct').value=r.productId;
+  fillUsageInfo();
+  setTimeout(()=>{
+    document.getElementById('uBatch').value=rid;
+    updateBatchExpiry();
+  },50);
+  document.getElementById('uType').value='start';
+  toggleUseUntil();
+  document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
+  document.querySelector('#tab-usage .card').scrollIntoView({behavior:'smooth'});
+  toast('🧴 已预填批次 '+r.batchCode+'，请确认后点「记录」');
 }
 function markBatchFinished(rid){
   const r=db.restocks.find(x=>x.id===rid);if(!r)return;
@@ -1510,6 +1525,18 @@ function renderUsage() {
     const batchDisplay = u.batchCode
       ? `<span class="batch-code">${u.batchCode}</span>`
       : '<span class="batch-code" style="background:#fee2e2;color:#b91c1c">无批次</span>';
+    const cfg=getCategoryConfig(p?.category||'');
+    const unitLabel=cfg.subUnit?cfg.unit:cfg.unit||'件';
+    const subUnitLabel=cfg.subUnit||'';
+    // build qty display with dual units if applicable
+    const qtyStr=(()=>{
+      if(u.qty<=1&&!subUnitLabel) return '';
+      if(subUnitLabel&&batchR?.subUnitQty){
+        const totalSub=u.qty*batchR.subUnitQty;
+        return ` × ${u.qty}${unitLabel}（${totalSub}${subUnitLabel}）`;
+      }
+      return u.qty>1?` × ${u.qty}${unitLabel}`:'';
+    })();
     return `<div class="usage-entry ${cls[u.type]}">
       <div style="display:flex;gap:10px;align-items:center;flex:1;min-width:0">
         <span style="font-size:16px;flex-shrink:0">${icons[u.type]}</span>
@@ -1519,7 +1546,7 @@ function renderUsage() {
             <span style="color:var(--text2)">${p?`${p.brand} · ${p.name}`:'（已删除）'}</span>
           </div>
           <div style="font-size:12px;color:var(--text3);margin-top:2px">
-            ${labels[u.type]}${u.qty>1?` × ${u.qty}`:''}
+            ${labels[u.type]}${qtyStr}
             ${u.type==='finish'&&u.finishedDate?` · 用完日期 ${u.finishedDate}`:''}
             ${durationDays?` · 用了 <strong style="color:var(--accent)">${durationDays} 天</strong>`:''}
             ${linkedOpen?` · 始于 ${linkedOpen.date}`:''}
