@@ -1381,17 +1381,18 @@ function markBatchInUse(rid){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-usage').classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b=>{if(b.textContent.includes('使用记录'))b.classList.add('active');});
-  // Pre-fill usage form
+  // Pre-fill: must populate select first, then set value, then fill batch
   populateUsageSelect();
   document.getElementById('uProduct').value=r.productId;
-  fillUsageInfo();
+  fillUsageInfo(); // this populates uBatch dropdown
+  // After fillUsageInfo populates the batch dropdown, set the batch value
   setTimeout(()=>{
     document.getElementById('uBatch').value=rid;
     updateBatchExpiry();
-  },50);
-  document.getElementById('uType').value='start';
-  toggleUseUntil();
-  document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
+    document.getElementById('uType').value='start';
+    toggleUseUntil();
+    document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
+  },80);
   document.querySelector('#tab-usage .card').scrollIntoView({behavior:'smooth'});
   toast('🧴 已预填批次 '+r.batchCode+'，请确认后点「记录」');
 }
