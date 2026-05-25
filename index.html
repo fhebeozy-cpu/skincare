@@ -1578,7 +1578,7 @@ function addUsage() {
   if(!pid){toast('⚠️ 请选择产品');return;}
   const type=document.getElementById('uType').value;
   const qtyRaw=parseInt(document.getElementById('uQty').value)||1;
-  const qtyUnitSel=document.getElementById('uQtyUnit').value; // 'main' or 'sub'
+  const qtyUnitSel=(document.getElementById('uQtyUnit')?.value)||'main'; // 'main' or 'sub'
   const batchId=document.getElementById('uBatch').value;
   const batchR=batchId?db.restocks.find(x=>x.id===batchId):null;
   const prod2=db.products.find(x=>x.id===pid);
@@ -1664,6 +1664,7 @@ function renderUsage() {
   document.getElementById('usageEmpty').style.display=us.length?'none':'block';
   document.getElementById('usageList').innerHTML=us.map(u=>{
     const p=db.products.find(x=>x.id===u.productId);
+    const cfg=getCategoryConfig(p?.category||'');
     const icons={start:'🟢',open:'🔵',finish:'⬜'};
     const finishLabel=`用完一${cfg.subUnit||cfg.unit||'瓶'}`;
     const labels={start:'开始使用',open:'开新瓶',finish:finishLabel};
@@ -1673,22 +1674,21 @@ function renderUsage() {
       : false;
     const canFinish = (u.type==='start'||u.type==='open') && !hasFinish;
     const batchR = u.batchId ? db.restocks.find(r=>r.id===u.batchId) : null;
-    // for finish records, find linked open event date
     const linkedOpen = u.linkedOpenId ? db.usages.find(x=>x.id===u.linkedOpenId) : null;
     const durationDays = u.type==='finish' && linkedOpen && u.finishedDate
       ? Math.round((new Date(u.finishedDate)-new Date(linkedOpen.date))/86400000) : null;
     const batchDisplay = u.batchCode
       ? `<span class="batch-code">${u.batchCode}</span>`
       : '<span class="batch-code" style="background:#fee2e2;color:#b91c1c">无批次</span>';
-    const cfg=getCategoryConfig(p?.category||'');
     const unitLabel=cfg.subUnit?cfg.unit:cfg.unit||'件';
     const subUnitLabel=cfg.subUnit||'';
     // build qty display with dual units if applicable
     const qtyStr=(()=>{
-      if(u.qty<=1&&!subUnitLabel) return '';
-      if(subUnitLabel&&batchR?.subUnitQty){
-        const totalSub=u.qty*batchR.subUnitQty;
-        return ` × ${u.qty}${unitLabel}（${totalSub}${subUnitLabel}）`;
+      if(subUnitLabel){
+        // qty stored in subUnits (片)
+        const subQty=u.qty;
+        const mainQty=batchR?.subUnitQty?+(u.qty/batchR.subUnitQty).toFixed(2):null;
+        return ` · <strong style="color:var(--accent)">${subQty}${subUnitLabel}${mainQty?` (${mainQty}${unitLabel})`:''}</strong>`;
       }
       return u.qty>1?` × ${u.qty}${unitLabel}`:'';
     })();
