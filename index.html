@@ -412,7 +412,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
       </div>
       <div class="form-group">
         <label>进货数量（付钱的）</label>
-        <input type="number" id="restockQty" value="1" min="1" oninput="updateTotalQty()">
+        <input type="number" id="restockQty" value="1" min="1" oninput="updateTotalQty();calcUnitPrice()">
       </div>
       <div class="form-group">
         <label>赠品数量（送的）</label>
@@ -421,6 +421,24 @@ tr:hover td{background:rgba(196,115,90,.04)}
       <div class="form-group">
         <label>总入库数量</label>
         <div id="restockTotalQty" style="padding:10px 13px;background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;font-size:15px;color:var(--accent)">1</div>
+      </div>
+      <!-- Sub-unit fields (e.g. sheets per box for masks) -->
+      <div id="subUnitGroup" style="display:none;grid-column:1/-1;display:none">
+        <div style="background:var(--surface2);border:1.5px solid var(--border);border-radius:var(--rs);padding:14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px">
+          <div style="grid-column:1/-1;font-size:12px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px" id="subUnitTitle">📦 规格详情</div>
+          <div class="form-group" style="margin:0">
+            <label id="subUnitQtyLabel">每盒片数</label>
+            <input type="number" id="subUnitQty" placeholder="如：30" min="1" oninput="calcUnitPrice()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label id="subUnitPriceLabel">每盒价格 (RM)</label>
+            <input type="number" id="subUnitBoxPrice" placeholder="0.00" step="0.01" oninput="calcUnitPrice()">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label id="subUnitCalcLabel">每片价格</label>
+            <div id="subUnitCalcResult" style="padding:10px 13px;background:var(--surface);border:1.5px solid var(--border);border-radius:var(--rs);font-weight:700;color:var(--accent);font-size:14px">—</div>
+          </div>
+        </div>
       </div>
       <div class="form-group">
         <label>此次单价 (RM)</label>
@@ -637,13 +655,21 @@ tr:hover td{background:rgba(196,115,90,.04)}
   <!-- Category Management -->
   <div class="card">
     <div class="card-title">🏷️ 产品分类管理</div>
-    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">管理产品分类清单，添加的分类会出现在所有分类下拉选择中。</p>
-    <div style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end">
-      <div class="form-group" style="flex:1;margin:0">
-        <label>新增分类</label>
-        <input type="text" id="newCategoryInput" placeholder="如：香水、口腔护理..." onkeydown="if(event.key==='Enter')addCategoryManual()">
+    <p style="font-size:13px;color:var(--text2);margin-bottom:18px">管理产品分类，并为每个分类设置计量单位（如：面膜 = 盒 / 片）。</p>
+    <div style="display:flex;gap:10px;margin-bottom:20px;align-items:flex-end;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:140px;margin:0">
+        <label>新增分类名称</label>
+        <input type="text" id="newCategoryInput" placeholder="如：面膜、香水..." onkeydown="if(event.key==='Enter')addCategoryManual()">
       </div>
-      <button class="btn btn-primary" onclick="addCategoryManual()">＋ 添加</button>
+      <div class="form-group" style="min-width:110px;margin:0">
+        <label>主单位</label>
+        <input type="text" id="newCategoryUnit" placeholder="如：瓶、盒、支">
+      </div>
+      <div class="form-group" style="min-width:110px;margin:0">
+        <label>子单位（可选）</label>
+        <input type="text" id="newCategorySubUnit" placeholder="如：片、粒">
+      </div>
+      <button class="btn btn-primary" style="align-self:flex-end" onclick="addCategoryManual()">＋ 添加</button>
     </div>
     <div id="categoryList"></div>
     <div id="categoryEmpty" style="display:none;text-align:center;padding:30px;color:var(--text3);font-size:13px">暂无分类</div>
@@ -1673,6 +1699,36 @@ function fillRestockInfo() {
   const p=db.products.find(x=>x.id===id);if(!p)return;
   document.getElementById('restockPrice').value=p.price||'';
   if(!document.getElementById('restockDate').value) document.getElementById('restockDate').value=new Date().toISOString().slice(0,10);
+  // Show sub-unit fields if category has subUnit
+  const cfg=getCategoryConfig(p.category||'');
+  const subUnitGroup=document.getElementById('subUnitGroup');
+  if(cfg.subUnit){
+    subUnitGroup.style.display='block';
+    document.getElementById('subUnitTitle').textContent=`📦 规格详情（${cfg.unit} / ${cfg.subUnit}）`;
+    document.getElementById('subUnitQtyLabel').textContent=`每${cfg.unit}有几${cfg.subUnit}`;
+    document.getElementById('subUnitBoxPrice').placeholder='0.00';
+    document.getElementById('subUnitPriceLabel').textContent=`每${cfg.unit}价格 (RM)`;
+    document.getElementById('subUnitCalcLabel').textContent=`每${cfg.subUnit}价格`;
+  } else {
+    subUnitGroup.style.display='none';
+  }
+}
+
+function calcUnitPrice(){
+  const boxQty=parseInt(document.getElementById('subUnitQty').value)||0;
+  const boxPrice=parseFloat(document.getElementById('subUnitBoxPrice').value)||0;
+  const boxes=parseInt(document.getElementById('restockQty').value)||1;
+  const result=document.getElementById('subUnitCalcResult');
+  if(!result)return;
+  if(boxQty>0&&boxPrice>0){
+    const perUnit=(boxPrice/boxQty).toFixed(3);
+    const totalUnits=boxQty*boxes;
+    result.textContent=`RM ${perUnit} / 片（共 ${totalUnits} 片）`;
+    // auto-fill price field with per-box price
+    document.getElementById('restockPrice').value=boxPrice.toFixed(2);
+  } else {
+    result.textContent='—';
+  }
 }
 function genBatchCode(pId){const c=db.restocks.filter(r=>r.productId===pId).length+1;return '#'+String(c).padStart(3,'0');}
 function updateTotalQty(){
@@ -1704,7 +1760,9 @@ function addRestock() {
     promoName:document.getElementById('restockPromoName').value,
     promoCode:document.getElementById('restockPromoCode').value,
     note:document.getElementById('restockNote').value.trim(),
-    tiers:getAllTiers()
+    tiers:getAllTiers(),
+    subUnitQty:parseInt(document.getElementById('subUnitQty').value)||0,
+    subUnitPrice:document.getElementById('subUnitBoxPrice').value||''
   };
 
   // Main batch (paid qty)
@@ -1753,6 +1811,10 @@ function addRestock() {
   document.getElementById('restockTotalQty').textContent='1';
   document.getElementById('restockPromoType').value='';
   document.getElementById('giftExpiryGroup').style.display='none';
+  document.getElementById('subUnitGroup').style.display='none';
+  document.getElementById('subUnitQty').value='';
+  document.getElementById('subUnitBoxPrice').value='';
+  document.getElementById('subUnitCalcResult').textContent='—';
   initTiers();
 }
 function markArrived(id){
@@ -2174,28 +2236,35 @@ function selectBrand(inputId,val){ document.getElementById(inputId).value=val; c
 // ═══════════════════════════════════════════
 //  CATEGORY ENGINE
 // ═══════════════════════════════════════════
-const DEFAULT_CATEGORIES=['护肤','洗发','沐浴','彩妆','身体护理','其他'];
-function getCategories(){const s=localStorage.getItem('sc_categories');return s?JSON.parse(s):[...DEFAULT_CATEGORIES];}
+const DEFAULT_CATEGORIES=[
+  {name:'护肤',unit:'瓶',subUnit:''},
+  {name:'洗发',unit:'瓶',subUnit:''},
+  {name:'沐浴',unit:'瓶',subUnit:''},
+  {name:'彩妆',unit:'支',subUnit:''},
+  {name:'面膜',unit:'盒',subUnit:'片'},
+  {name:'身体护理',unit:'瓶',subUnit:''},
+  {name:'其他',unit:'件',subUnit:''}
+];
+function getCategories(){
+  const s=localStorage.getItem('sc_categories');
+  if(!s) return DEFAULT_CATEGORIES.map(c=>({...c}));
+  return JSON.parse(s).map(c=>typeof c==='string'?{name:c,unit:'件',subUnit:''}:c);
+}
+function getCategoryConfig(name){return getCategories().find(c=>c.name===name)||{name,unit:'件',subUnit:''};}
 function saveCategories(cats){localStorage.setItem('sc_categories',JSON.stringify(cats));}
-function addCategory(name){if(!name)return;let cats=getCategories();if(!cats.includes(name)){cats.push(name);saveCategories(cats);}}
-function deleteCategory(name){let cats=getCategories().filter(c=>c!==name);saveCategories(cats);}
+function addCategory(name,unit,subUnit){if(!name)return;let cats=getCategories();if(!cats.find(c=>c.name===name)){cats.push({name,unit:unit||'件',subUnit:subUnit||''});saveCategories(cats);}}
+function deleteCategory(name){saveCategories(getCategories().filter(c=>c.name!==name));}
 
 function populateCategorySelects(){
   const cats=getCategories();
-  const opts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+  const opts=cats.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
   ['pCategory','editCategory'].forEach(id=>{
     const el=document.getElementById(id);if(!el)return;
-    const cur=el.value;
-    el.innerHTML=opts;
-    if(cats.includes(cur)) el.value=cur;
+    const cur=el.value;el.innerHTML=opts;
+    if(cats.find(c=>c.name===cur)) el.value=cur;
   });
-  // inventory filter
   const inv=document.getElementById('invCatFilter');
-  if(inv){
-    const cur=inv.value;
-    inv.innerHTML='<option value="">全部分类</option>'+opts;
-    if(cats.includes(cur)) inv.value=cur;
-  }
+  if(inv){const cur=inv.value;inv.innerHTML='<option value="">全部分类</option>'+opts;if(cats.find(c=>c.name===cur))inv.value=cur;}
 }
 
 function renderCategoryList(){
@@ -2206,70 +2275,63 @@ function renderCategoryList(){
   empty.style.display='none';
   list.innerHTML=cats.map(c=>`
     <div class="platform-list-item">
-      <span class="platform-list-name">🏷️ ${c}</span>
-      <button class="btn btn-danger btn-sm" onclick="deleteCategoryFromSettings(this.getAttribute('data-name'))" data-name="${c}">🗑 删除</button>
+      <div style="flex:1">
+        <span class="platform-list-name">🏷️ ${c.name}</span>
+        <span style="font-size:12px;color:var(--text3);margin-left:10px">主单位：${c.unit||'—'}${c.subUnit?' · 子单位：'+c.subUnit:' · 无子单位'}</span>
+      </div>
+      <button class="btn btn-danger btn-sm" onclick="deleteCategoryFromSettings(this.getAttribute('data-name'))" data-name="${c.name}">🗑 删除</button>
     </div>
   `).join('');
 }
 
 function addCategoryManual(){
-  const input=document.getElementById('newCategoryInput');
-  const val=input.value.trim();
-  if(!val){toast('⚠️ 请输入分类名称');return;}
-  if(getCategories().includes(val)){toast('⚠️ 该分类已存在');return;}
-  addCategory(val);
-  input.value='';
-  renderCategoryList();
-  populateCategorySelects();
-  toast(`✅ 已添加「${val}」`);
+  const name=document.getElementById('newCategoryInput').value.trim();
+  const unit=document.getElementById('newCategoryUnit').value.trim();
+  const subUnit=document.getElementById('newCategorySubUnit').value.trim();
+  if(!name){toast('⚠️ 请输入分类名称');return;}
+  if(getCategories().find(c=>c.name===name)){toast('⚠️ 该分类已存在');return;}
+  addCategory(name,unit,subUnit);
+  document.getElementById('newCategoryInput').value='';
+  document.getElementById('newCategoryUnit').value='';
+  document.getElementById('newCategorySubUnit').value='';
+  renderCategoryList();populateCategorySelects();
+  toast(`✅ 已添加「${name}」`);
 }
 
 function deleteCategoryFromSettings(name){
   const using=db.products.filter(p=>p.category===name);
   if(using.length>0){
-    // Show which products use this category with inline reassign
-    const cats=getCategories().filter(c=>c!==name);
-    const catOpts=cats.map(c=>`<option value="${c}">${c}</option>`).join('');
+    const cats=getCategories().filter(c=>c.name!==name);
+    const catOpts=cats.map(c=>`<option value="${c.name}">${c.name}</option>`).join('');
     const productRows=using.map(p=>`
       <div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
         <div style="flex:1;min-width:140px">
           <div style="font-weight:600;font-size:13px">${p.brand} · ${p.name}</div>
           <div style="font-size:11px;color:var(--text3)">目前分类：${p.category}</div>
         </div>
-        <select id="reassignCat_${p.id}" style="padding:7px 10px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:13px;background:var(--bg)">
-          ${catOpts}
-        </select>
+        <select id="reassignCat_${p.id}" style="padding:7px 10px;border-radius:var(--rs);border:1.5px solid var(--border);font-size:13px;background:var(--bg)">${catOpts}</select>
       </div>
     `).join('');
     document.getElementById('catDeleteWarningBody').innerHTML=`
       <p style="font-size:13px;color:var(--text2);margin-bottom:14px">以下 <strong>${using.length}</strong> 个产品正在使用「${name}」分类，请先为它们选择新分类，再删除：</p>
-      ${productRows}
-    `;
+      ${productRows}`;
     document.getElementById('catDeleteName').textContent=name;
-    document.getElementById('catDeleteConfirmBtn').onclick=()=>confirmDeleteCategory(name, using.map(p=>p.id));
+    document.getElementById('catDeleteConfirmBtn').onclick=()=>confirmDeleteCategory(name,using.map(p=>p.id));
     openModal('catDeleteModal');
   } else {
     if(!confirm(`确定删除分类「${name}」？`))return;
-    deleteCategory(name);
-    renderCategoryList();
-    populateCategorySelects();
+    deleteCategory(name);renderCategoryList();populateCategorySelects();
     toast(`🗑 已删除「${name}」`);
   }
 }
 
-function confirmDeleteCategory(name, productIds){
-  // Apply reassigned categories
+function confirmDeleteCategory(name,productIds){
   productIds.forEach(pid=>{
     const sel=document.getElementById('reassignCat_'+pid);
-    if(sel){
-      const p=db.products.find(x=>x.id===pid);
-      if(p) p.category=sel.value;
-    }
+    if(sel){const p=db.products.find(x=>x.id===pid);if(p)p.category=sel.value;}
   });
-  deleteCategory(name);
-  saveLocal();autoSync();render();
-  renderCategoryList();
-  populateCategorySelects();
+  deleteCategory(name);saveLocal();autoSync();render();
+  renderCategoryList();populateCategorySelects();
   closeModal('catDeleteModal');
   toast(`🗑 已删除「${name}」，${productIds.length} 个产品已更新分类`);
 }
