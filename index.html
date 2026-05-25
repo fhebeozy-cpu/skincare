@@ -1518,8 +1518,8 @@ function addTierRow(minQty='', unitPrice='') {
   div.innerHTML = `
     <input type="checkbox" class="tier-check" id="tierCheck${n}" onchange="onTierCheck(${n})">
     <div class="form-group" style="margin:0">
-      <label>最少买几瓶</label>
-      <input type="number" id="tierQty${n}" value="${minQty}" min="1" placeholder="如：3" oninput="recalcTiers()">
+      <label>最少买几瓶才有此价</label>
+      <input type="number" id="tierQty${n}" value="${minQty}" min="1" placeholder="如：4" oninput="recalcTiers()">
     </div>
     <div class="form-group" style="margin:0">
       <label>此档单价 (RM)</label>
@@ -1554,9 +1554,8 @@ function syncTierToPrice(n) {
   const cb=document.getElementById('tierCheck'+n);
   if(cb && cb.checked){
     const price=document.getElementById('tierPrice'+n).value;
-    const qty=document.getElementById('tierQty'+n).value;
     if(price) document.getElementById('restockPrice').value=price;
-    if(qty)   document.getElementById('restockQty').value=qty;
+    // Do NOT change qty — user decides how many they bought
   }
 }
 
@@ -1580,8 +1579,7 @@ function recalcTiers() {
     if(cb && cb.checked){
       const p=parseFloat(document.getElementById('tierPrice'+i).value)||0;
       const q=parseInt(document.getElementById('tierQty'+i).value)||0;
-      if(q&&p) summary=`✅ 已选：买 ${q} 瓶，单价 RM${p.toFixed(2)}${origPrice>0?`，比原价省 RM${(origPrice-p).toFixed(2)}/瓶`:''}`;
-    }
+      if(q&&p) summary=`✅ 已选：最少买 ${q} 瓶得此价 RM${p.toFixed(2)}/瓶${origPrice>0?`，比原价省 RM${(origPrice-p).toFixed(2)}/瓶`:''}（数量请自行填写）`;    }
   }
   document.getElementById('tierSummary').textContent=summary;
 }
@@ -1807,7 +1805,7 @@ function renderRecords() {
           const savedAmt=origP&&parseFloat(t.unitPrice)<origP?(origP-parseFloat(t.unitPrice)).toFixed(2):null;
           return `<div style="display:flex;align-items:center;gap:5px;padding:2px 0;font-size:11px">
             <span style="color:${isSelected?'#065f46':'var(--text3)'};font-size:13px">${isSelected?'✅':'○'}</span>
-            <span style="${isSelected?'font-weight:700;color:var(--text)':'color:var(--text3)'}">买${t.minQty||'?'}瓶 → RM${parseFloat(t.unitPrice||0).toFixed(2)}/瓶${savedAmt?`<span style="color:#065f46"> (省RM${savedAmt})</span>`:''}${isSelected?' ← 本次':''}
+            <span style="${isSelected?'font-weight:700;color:var(--text)':'color:var(--text3)'}">最少${t.minQty||'?'}瓶 → RM${parseFloat(t.unitPrice||0).toFixed(2)}/瓶${savedAmt?`<span style="color:#065f46"> (省RM${savedAmt})</span>`:''}${isSelected?' ← 本次':''}
             </span>
           </div>`;
         }).join('');
