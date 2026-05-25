@@ -785,6 +785,83 @@ tr:hover td{background:rgba(196,115,90,.04)}
   </div>
 </div>
 
+<!-- ══ MODAL: EDIT RESTOCK ══ -->
+<div class="modal-overlay" id="editRestockModal">
+  <div class="modal" style="max-width:580px">
+    <div class="modal-header">
+      <div class="modal-title">✏️ 编辑进货记录</div>
+      <button class="modal-close" onclick="closeModal('editRestockModal')">✕</button>
+    </div>
+    <input type="hidden" id="editRestockId">
+    <div class="form-grid">
+      <div class="form-group">
+        <label>进货日期</label>
+        <input type="date" id="erDate">
+      </div>
+      <div class="form-group">
+        <label>数量</label>
+        <input type="number" id="erQty" min="1">
+      </div>
+      <div class="form-group">
+        <label>单价 (RM)</label>
+        <input type="number" id="erPrice" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>原价 (RM)</label>
+        <input type="number" id="erOrigPrice" step="0.01">
+      </div>
+      <div class="form-group">
+        <label>平台</label>
+        <input type="text" id="erPlatform">
+      </div>
+      <div class="form-group">
+        <label>截止日期</label>
+        <input type="date" id="erExpiry">
+      </div>
+      <div class="form-group">
+        <label>优惠类型</label>
+        <select id="erPromoType">
+          <option value="">无优惠</option>
+          <option value="percent">折扣 (%)</option>
+          <option value="flat">直减 (RM)</option>
+          <option value="bundle">买N送N</option>
+          <option value="voucher">优惠券/代码</option>
+          <option value="cashback">返现/返券</option>
+          <option value="free_gift">赠品</option>
+          <option value="other">其他</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>优惠值</label>
+        <input type="text" id="erPromoValue">
+      </div>
+      <div class="form-group">
+        <label>活动名称</label>
+        <input type="text" id="erPromoName">
+      </div>
+      <div class="form-group">
+        <label>优惠码</label>
+        <input type="text" id="erPromoCode">
+      </div>
+      <div class="form-group">
+        <label>状态</label>
+        <select id="erArrived">
+          <option value="arrived">✅ 已到货</option>
+          <option value="transit">🚚 在途中</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label>备注</label>
+        <input type="text" id="erNote">
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" onclick="saveRestockEdit()">💾 保存</button>
+      <button class="btn btn-secondary" onclick="closeModal('editRestockModal')">取消</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1600,6 +1677,46 @@ function confirmArrived(){
   closeModal('arrivedModal');
   toast('✅ 批次'+(r.batchCode?' '+r.batchCode:'')+'已到货，库存已更新'+(expiry?'，截止日期已记录':''));
 }
+function openRestockEdit(id){
+  const r=db.restocks.find(x=>x.id===id);if(!r)return;
+  document.getElementById('editRestockId').value=id;
+  document.getElementById('erDate').value=r.date||'';
+  document.getElementById('erQty').value=r.qty||1;
+  document.getElementById('erPrice').value=r.price||'';
+  document.getElementById('erOrigPrice').value=r.origPrice||'';
+  document.getElementById('erPlatform').value=r.platform||'';
+  document.getElementById('erExpiry').value=r.expiry||'';
+  document.getElementById('erPromoType').value=r.promoType||'';
+  document.getElementById('erPromoValue').value=r.promoValue||'';
+  document.getElementById('erPromoName').value=r.promoName||'';
+  document.getElementById('erPromoCode').value=r.promoCode||'';
+  document.getElementById('erArrived').value=r.arrived||'arrived';
+  document.getElementById('erNote').value=r.note||'';
+  openModal('editRestockModal');
+}
+function saveRestockEdit(){
+  const id=document.getElementById('editRestockId').value;
+  const r=db.restocks.find(x=>x.id===id);if(!r)return;
+  const oldArrived=r.arrived;
+  const newArrived=document.getElementById('erArrived').value;
+  const newQty=parseInt(document.getElementById('erQty').value)||1;
+  r.date=document.getElementById('erDate').value;
+  r.qty=newQty;
+  r.price=document.getElementById('erPrice').value;
+  r.origPrice=document.getElementById('erOrigPrice').value;
+  r.platform=document.getElementById('erPlatform').value.trim();
+  r.expiry=document.getElementById('erExpiry').value;
+  r.promoType=document.getElementById('erPromoType').value;
+  r.promoValue=document.getElementById('erPromoValue').value;
+  r.promoName=document.getElementById('erPromoName').value;
+  r.promoCode=document.getElementById('erPromoCode').value;
+  r.arrived=newArrived;
+  r.batchStatus=newArrived==='transit'?'transit':(r.batchStatus==='transit'?'arrived':r.batchStatus);
+  r.note=document.getElementById('erNote').value.trim();
+  saveLocal();autoSync();render();
+  closeModal('editRestockModal');
+  toast('✅ 进货记录已更新');
+}
 function deleteRestock(id){if(!confirm('删除此进货记录？'))return;db.restocks=db.restocks.filter(r=>r.id!==id);saveLocal();autoSync();renderRecords();renderDashboard();toast('🗑 已删除');}
 
 // ═══════════════════════════════════════════
@@ -1656,6 +1773,7 @@ function renderRecords() {
       <td style="white-space:nowrap;min-width:110px">
         <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-start">
           ${r.arrived==='transit'?`<button class="btn btn-success btn-sm" onclick="markArrived('${r.id}')">✅ 到货</button>`:`<button class="btn btn-secondary btn-sm" onclick="editExpiry('${r.id}')">📅 ${r.expiry||'填截止日期'}</button>`}
+          <button class="btn btn-secondary btn-sm" onclick="openRestockEdit('${r.id}')">✏️ 编辑</button>
           <button class="btn btn-danger btn-sm" onclick="deleteRestock('${r.id}')">🗑 删除</button>
         </div>
       </td>
