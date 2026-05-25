@@ -416,7 +416,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
       </div>
       <div class="form-group">
         <label>赠品数量（送的）</label>
-        <input type="number" id="restockGiftQty" value="0" min="0" oninput="updateTotalQty()">
+        <input type="number" id="restockGiftQty" value="0" min="0" oninput="updateTotalQty();calcUnitPrice()">
       </div>
       <div class="form-group">
         <label>总入库数量</label>
@@ -1869,14 +1869,15 @@ function fillRestockInfo() {
 function calcUnitPrice(){
   const boxQty=parseInt(document.getElementById('subUnitQty').value)||0;
   const boxPrice=parseFloat(document.getElementById('subUnitBoxPrice').value)||0;
-  const boxes=parseInt(document.getElementById('restockQty').value)||1;
+  const paidBoxes=parseInt(document.getElementById('restockQty').value)||1;
+  const giftBoxes=parseInt(document.getElementById('restockGiftQty').value)||0;
+  const totalBoxes=paidBoxes+giftBoxes;
   const result=document.getElementById('subUnitCalcResult');
   if(!result)return;
   if(boxQty>0&&boxPrice>0){
     const perUnit=(boxPrice/boxQty).toFixed(3);
-    const totalUnits=boxQty*boxes;
+    const totalUnits=boxQty*totalBoxes;
     result.textContent=`RM ${perUnit} / 片（共 ${totalUnits} 片）`;
-    // auto-fill price field with per-box price
     document.getElementById('restockPrice').value=boxPrice.toFixed(2);
   } else {
     result.textContent='—';
