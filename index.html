@@ -345,7 +345,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
         <select id="uType" onchange="toggleUseUntil()">
           <option value="start">🟢 开始使用（开封）</option>
           <option value="open">🔵 开新瓶</option>
-          <option value="finish">⬜ 用完一瓶</option>
+          <option value="finish" id="uTypeFinishOpt">⬜ 用完一瓶</option>
         </select>
       </div>
       <div class="form-group">
@@ -1365,7 +1365,7 @@ function openDetail(id) {
     ${usages.length?usages.slice(0,5).map(u=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
       <span>${u.type==='start'?'🟢':u.type==='open'?'🔵':'⬜'}</span>
       <span style="color:var(--text2)">${u.date}</span>
-      <span>${u.type==='start'?'开始使用':u.type==='open'?'开新瓶':'用完一瓶'}</span>
+      <span>${u.type==='start'?'开始使用':u.type==='open'?'开新瓶':'用完一'+( getCategoryConfig(db.products.find(x=>x.id===u.productId)?.category||'').subUnit || getCategoryConfig(db.products.find(x=>x.id===u.productId)?.category||'').unit ||'瓶')}</span>
       ${u.batchCode?`<span class="batch-code">${u.batchCode}</span>`:''}
       ${u.note?`<span style="color:var(--text3)">— ${u.note}</span>`:''}
     </div>`).join(''):'<div style="color:var(--text3);font-size:13px">无使用记录</div>'}
@@ -1412,7 +1412,7 @@ function markBatchInUse(rid, category){
   },80);
   document.querySelector('#tab-usage .card').scrollIntoView({behavior:'smooth'});
   const hint=isInstantUse
-    ?`🎭 面膜批次 ${r.batchCode}，已预选「用完一瓶」，确认日期后点「记录」`
+    ?`🎭 面膜批次 ${r.batchCode}，已预选「用完一${cfg.subUnit||'片'}」，确认日期后点「记录」`
     :`🧴 已预填批次 ${r.batchCode}，请确认后点「记录」`;
   toast(hint);
 }
@@ -1432,6 +1432,12 @@ function populateUsageSelect() {
   const s=document.getElementById('uProduct');
   s.innerHTML='<option value="">— 选择产品 —</option>'+db.products.sort((a,b)=>a.brand.localeCompare(b.brand)).map(p=>`<option value="${p.id}">${p.brand} · ${p.name}</option>`).join('');
 }
+function updateFinishLabel(cfg){
+  const u=cfg?.subUnit||cfg?.unit||'瓶';
+  const opt=document.getElementById('uTypeFinishOpt');
+  if(opt) opt.textContent=`⬜ 用完一${u}`;
+}
+
 function fillUsageInfo() {
   if(!document.getElementById('uDate').value) document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
   const pid=document.getElementById('uProduct').value;
@@ -1441,6 +1447,7 @@ function fillUsageInfo() {
   const cfg=getCategoryConfig(p?.category||'');
   const unit=cfg.subUnit||cfg.unit||'件';
   document.getElementById('uQtyLabel').textContent=`数量（${unit}）`;
+  updateFinishLabel(cfg);
   const batches=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').sort((a,b)=>new Date(a.date)-new Date(b.date));
   batchSel.innerHTML='<option value="">— 不指定批次 —</option>'+batches.map(r=>{
     const bs=r.batchStatus||r.arrived;
@@ -1509,7 +1516,10 @@ function addUsage() {
   }
   saveLocal();autoSync();render();
   if(document.getElementById('detailModal').classList.contains('open')) openDetail(pid);
-  toast(`✅ 已记录：${type==='start'?'开始使用':type==='open'?'开新瓶':'用完一瓶'}${batchR?' ('+batchR.batchCode+')':''}`);
+  const prod2=db.products.find(x=>x.id===pid);
+  const cfg2=getCategoryConfig(prod2?.category||'');
+  const finishLbl=`用完一${cfg2.subUnit||cfg2.unit||'瓶'}`;
+  toast(`✅ 已记录：${type==='start'?'开始使用':type==='open'?'开新瓶':finishLbl}${batchR?' ('+batchR.batchCode+')':''}`);
   document.getElementById('uProduct').value='';
   document.getElementById('uBatch').innerHTML='<option value="">— 先选产品 —</option>';
   document.getElementById('uBatchExpiryInfo').style.display='none';
@@ -1532,7 +1542,8 @@ function renderUsage() {
   document.getElementById('usageList').innerHTML=us.map(u=>{
     const p=db.products.find(x=>x.id===u.productId);
     const icons={start:'🟢',open:'🔵',finish:'⬜'};
-    const labels={start:'开始使用',open:'开新瓶',finish:'用完一瓶'};
+    const finishLabel=`用完一${cfg.subUnit||cfg.unit||'瓶'}`;
+    const labels={start:'开始使用',open:'开新瓶',finish:finishLabel};
     const cls={start:'usage-type-start',open:'usage-type-open',finish:''};
     const hasFinish = (u.type==='start'||u.type==='open')
       ? db.usages.some(f=>f.type==='finish' && f.linkedOpenId===u.id)
