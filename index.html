@@ -987,10 +987,29 @@ function mergeArraysById(local, cloud) {
 
 // Compute product qty from restocks and usages — single source of truth
 function computeQty(pid) {
-  // Total arrived (including in_use) minus opened bottles (start/open usages)
-  const arrived = db.restocks.filter(r=>r.productId===pid && r.arrived==='arrived').reduce((s,r)=>s+r.qty,0);
-  const opened  = db.usages.filter(u=>u.productId===pid && (u.type==='start'||u.type==='open')).reduce((s,u)=>s+u.qty,0);
-  return Math.max(0, arrived - opened);
+  const p=db.products.find(x=>x.id===pid);
+  const cfg=getCategoryConfig(p?.category||'');
+  const hasSubUnit=!!cfg.subUnit;
+
+  // Total arrived in main units (盒)
+  const arrived=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').reduce((s,r)=>s+r.qty,0);
+
+  if(!hasSubUnit){
+    // No subUnit: opened bottles (start/open) each reduce by qty
+    const opened=db.usages.filter(u=>u.productId===pid&&(u.type==='start'||u.type==='open')).reduce((s,u)=>s+u.qty,0);
+    return Math.max(0,arrived-opened);
+  } else {
+    // Has subUnit (e.g. 面膜): finish events reduce stock
+    // Each finish usage qty is in subUnits (片); convert to main units (盒) using batch's subUnitQty
+    const finishUsages=db.usages.filter(u=>u.productId===pid&&u.type==='finish');
+    let usedMainUnits=0;
+    finishUsages.forEach(u=>{
+      const batchR=u.batchId?db.restocks.find(r=>r.id===u.batchId):null;
+      const subPerMain=batchR?.subUnitQty||1;
+      usedMainUnits+=u.qty/subPerMain; // e.g. 1片 ÷ 5片/盒 = 0.2盒
+    });
+    return Math.max(0,arrived-usedMainUnits);
+  }
 }
 // Sync all product qtys from computed values (call after any change)
 function syncAllQty() {
@@ -1287,9 +1306,16 @@ function renderInventory() {
         ${latestR?.expiry?`<div class="expiry-text ${et.cls}" style="margin-bottom:6px">⏰ 最早到期：${latestR.expiry} ${et.msg}</div>`:''}
         ${batchLines?`<div style="margin-bottom:8px">${batchLines}</div>`:''}
         <div class="product-stats">
+          ${cfg.subUnit?(()=>{
+            const subPerMain=db.restocks.filter(r=>r.productId===p.id&&r.subUnitQty).map(r=>r.subUnitQty)[0]||1;
+            const subQty=Math.round(p.qty*subPerMain);
+            return `<div class="pstat"><div class="pstat-val">${Number.isInteger(p.qty)?p.qty:p.qty.toFixed(1)}</div><div class="pstat-lbl">库存(${cfg.unit})</div></div>
+            <div class="pstat"><div class="pstat-val" style="color:var(--accent2)">${subQty}</div><div class="pstat-lbl">库存(${cfg.subUnit})</div></div>
+            <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每${cfg.unit}</div></div>`;
+          })():`
           <div class="pstat"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">库存(${cfg.unit||'件'})</div></div>
           <div class="pstat"><div class="pstat-val" style="${transitCnt>0?'color:#1d4ed8':''}">${transitCnt||0}</div><div class="pstat-lbl">在途(${cfg.unit||'件'})</div></div>
-          <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每${cfg.unit||'件'}</div></div>
+          <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每${cfg.unit||'件'}</div></div>`}
         </div>
         ${avgP?`<div style="font-size:12px;color:var(--text2);margin-top:8px">均价：<strong style="color:var(--accent)">RM ${avgP.toFixed(2)}</strong></div>`:''}
         <div class="product-actions">
