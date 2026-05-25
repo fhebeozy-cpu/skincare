@@ -1319,22 +1319,35 @@ function batchStatusLabel(s){return({transit:{cls:'bs-transit',txt:'🚚 在途�
 
 function openDetail(id) {
   const p=db.products.find(x=>x.id===id); if(!p) return;
+  const cfg=getCategoryConfig(p.category||'');
+  const mainU=cfg.unit||'件';
+  const subU=cfg.subUnit||'';
   const allRestocks=db.restocks.filter(r=>r.productId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const usages=db.usages.filter(u=>u.productId===id).sort((a,b)=>new Date(b.date)-new Date(a.date));
   const dur=calcDuration(id);
   const avgP=calcAvgPrice(id);
-  const totalSpend=allRestocks.filter(r=>r.arrived==='arrived').reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+  const totalSpend=allRestocks.filter(r=>r.arrived==='arrived'&&!r.isGift).reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+  const finishLbl=`用完一${subU||mainU}`;
+
+  // Total sub-units in stock
+  const totalSubUnits=subU?allRestocks.filter(r=>r.arrived==='arrived'&&r.batchStatus!=='finished'&&r.subUnitQty).reduce((s,r)=>s+r.qty*r.subUnitQty,0):0;
+  // Used sub-units
+  const usedSubUnits=subU?usages.filter(u=>u.type==='finish').reduce((s,u)=>s+u.qty,0):0;
+  // Avg per-subunit price
+  const avgPerSub=subU&&avgP&&allRestocks.find(r=>r.subUnitQty)?avgP/allRestocks.find(r=>r.subUnitQty).subUnitQty:null;
 
   const batchRows=allRestocks.map(r=>{
     const bs=batchStatusLabel(r.batchStatus||r.arrived);
     const et=expiryText(r.expiry||'');
     const saved=r.origPrice&&parseFloat(r.origPrice)>parseFloat(r.price)?(parseFloat(r.origPrice)-parseFloat(r.price))*r.qty:0;
+    const qtyDisplay=subU&&r.subUnitQty?`${r.qty}${mainU}（${r.qty*r.subUnitQty}${subU}）`:r.qty+mainU;
+    const perSubDisplay=subU&&r.subUnitQty&&r.price?` · 每${subU} RM${(parseFloat(r.price)/r.subUnitQty).toFixed(3)}`:'';
     return `<div class="batch-row batch-${r.batchStatus||r.arrived}">
       <span class="batch-code">${r.batchCode||'—'}</span>
       <div>
-        <div style="font-weight:600">${r.date||'—'} · ${r.platform||'—'} · ${r.qty}件${r.isGift?` <span class="discount-tag">🎁 赠品</span>`:''}</div>
+        <div style="font-weight:600">${r.date||'—'} · ${r.platform||'—'} · ${qtyDisplay}${r.isGift?` <span class="discount-tag">🎁 赠品</span>`:''}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">
-          单价 RM${parseFloat(r.price||0).toFixed(2)}
+          ${r.isGift?'赠品':`单价 RM${parseFloat(r.price||0).toFixed(2)}/每${mainU}${perSubDisplay}`}
           ${saved>0?`<span style="color:#065f46"> · 省 RM${saved.toFixed(2)}</span>`:''}
           ${r.expiry?`<span class="${et.cls}"> · ⏰ 截止 ${r.expiry} ${et.msg}</span>`:'<span style="color:#d97706"> · 未填截止日期</span>'}
           ${r.finishedDate?`<span style="color:#6b7280"> · ✅ 实际用完 ${r.finishedDate}</span>`:''}
@@ -1352,23 +1365,52 @@ function openDetail(id) {
   document.getElementById('detailTitle').textContent=`${p.brand} · ${p.name}`;
   document.getElementById('detailBody').innerHTML=`
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px">
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">当前库存</div></div>
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每瓶时长</div></div>
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${avgP?'RM'+avgP.toFixed(2):'—'}</div><div class="pstat-lbl">均价</div></div>
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">RM${totalSpend.toFixed(0)}</div><div class="pstat-lbl">累计花费</div></div>
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${allRestocks.length}</div><div class="pstat-lbl">批次总数</div></div>
-      <div class="pstat" style="background:var(--bg)"><div class="pstat-val">${dur&&avgP?'RM'+(avgP/dur).toFixed(2):'—'}</div><div class="pstat-lbl">每天费用</div></div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${p.qty}</div>
+        <div class="pstat-lbl">库存(${mainU})</div>
+        ${subU&&totalSubUnits>0?`<div style="font-size:11px;color:var(--accent);margin-top:2px">${totalSubUnits}${subU}</div>`:''}
+      </div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${dur?dur+'天':'—'}</div>
+        <div class="pstat-lbl">每${mainU}时长</div>
+      </div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${avgP?'RM'+avgP.toFixed(2):'—'}</div>
+        <div class="pstat-lbl">均价/每${mainU}</div>
+        ${avgPerSub?`<div style="font-size:11px;color:var(--text3);margin-top:2px">RM${avgPerSub.toFixed(3)}/每${subU}</div>`:''}
+      </div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">RM${totalSpend.toFixed(0)}</div>
+        <div class="pstat-lbl">累计花费</div>
+      </div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${allRestocks.length}</div>
+        <div class="pstat-lbl">批次总数</div>
+      </div>
+      <div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${dur&&avgP?'RM'+(avgP/dur).toFixed(2):'—'}</div>
+        <div class="pstat-lbl">每天费用</div>
+      </div>
+      ${subU?`<div class="pstat" style="background:var(--bg)">
+        <div class="pstat-val">${usedSubUnits}</div>
+        <div class="pstat-lbl">已用${subU}数</div>
+      </div>`:''}
     </div>
     <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--text2)">📦 进货批次（${allRestocks.length}批）</div>
     ${allRestocks.length?batchRows:'<div style="color:var(--text3);font-size:13px;padding:10px 0">暂无进货记录</div>'}
     <div style="font-weight:700;font-size:13px;margin:16px 0 8px;color:var(--text2)">🧴 使用事件（${usages.length}）</div>
-    ${usages.length?usages.slice(0,5).map(u=>`<div style="display:flex;gap:10px;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px">
-      <span>${u.type==='start'?'🟢':u.type==='open'?'🔵':'⬜'}</span>
-      <span style="color:var(--text2)">${u.date}</span>
-      <span>${u.type==='start'?'开始使用':u.type==='open'?'开新瓶':'用完一'+( getCategoryConfig(db.products.find(x=>x.id===u.productId)?.category||'').subUnit || getCategoryConfig(db.products.find(x=>x.id===u.productId)?.category||'').unit ||'瓶')}</span>
-      ${u.batchCode?`<span class="batch-code">${u.batchCode}</span>`:''}
-      ${u.note?`<span style="color:var(--text3)">— ${u.note}</span>`:''}
-    </div>`).join(''):'<div style="color:var(--text3);font-size:13px">无使用记录</div>'}
+    ${usages.length?usages.slice(0,8).map(u=>{
+      const uQtyDisplay=subU&&u.batchId?( ()=>{const br=allRestocks.find(x=>x.id===u.batchId);return br?.subUnitQty?`${u.qty}${mainU}（${u.qty*br.subUnitQty}${subU}）`:u.qty+mainU;} )():u.qty>1?u.qty+mainU:'';
+      return `<div style="display:flex;gap:10px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border);font-size:13px;flex-wrap:wrap">
+        <span>${u.type==='start'?'🟢':u.type==='open'?'🔵':'⬜'}</span>
+        <span style="color:var(--text2)">${u.date}</span>
+        <span>${u.type==='start'?'开始使用':u.type==='open'?'开新'+mainU:finishLbl}</span>
+        ${uQtyDisplay?`<span style="color:var(--accent);font-weight:600">${uQtyDisplay}</span>`:''}
+        ${u.batchCode?`<span class="batch-code">${u.batchCode}</span>`:''}
+        ${u.finishedDate&&u.type==='finish'?`<span style="color:var(--text3)">用完 ${u.finishedDate}</span>`:''}
+        ${u.note?`<span style="color:var(--text3)">— ${u.note}</span>`:''}
+      </div>`;
+    }).join(''):'<div style="color:var(--text3);font-size:13px">无使用记录</div>'}
   `;
   openModal('detailModal');
 }
