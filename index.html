@@ -1343,8 +1343,8 @@ function openDetail(id) {
       <span class="batch-status-tag ${bs.cls}">${bs.txt}</span>
       <div style="display:flex;flex-direction:column;gap:4px">
         <button class="btn btn-secondary btn-sm" onclick="editExpiry('${r.id}');closeModal('detailModal')">📅 ${r.expiry?'改日期':'填日期'}</button>
-        ${r.batchStatus==='arrived'?`<button class="btn btn-purple btn-sm" onclick="markBatchInUse('${r.id}')">🧴 开始用</button>`:''}
-        ${r.batchStatus==='in_use'?`<button class="btn btn-secondary btn-sm" onclick="markBatchFinished('${r.id}')">⬜ 用完</button>`:''}
+        ${r.batchStatus==='arrived'?`<button class="btn btn-purple btn-sm" onclick="markBatchInUse('${r.id}','${p.category||''}')">🧴 开始用</button>`:''}
+        ${r.batchStatus==='in_use'?`<button class="btn btn-secondary btn-sm" onclick="cancelBatchInUse('${r.id}')">↩️ 取消使用</button><button class="btn btn-secondary btn-sm" onclick="markBatchFinished('${r.id}')">⬜ 用完</button>`:''}
       </div>
     </div>`;
   }).join('');
@@ -1373,28 +1373,48 @@ function openDetail(id) {
   openModal('detailModal');
 }
 
-function markBatchInUse(rid){
+function cancelBatchInUse(rid){
   const r=db.restocks.find(x=>x.id===rid);if(!r)return;
+  if(!confirm('确定取消使用这批次？状态会改回「已到货」。'))return;
+  r.batchStatus='arrived';
+  saveLocal();autoSync();render();
+  openDetail(r.productId);
+  toast('↩️ 已取消使用，批次改回已到货');
+}
+
+function markBatchInUse(rid, category){
+  const r=db.restocks.find(x=>x.id===rid);if(!r)return;
+  const cfg=getCategoryConfig(category||'');
+  const isInstantUse=!!cfg.subUnit; // subUnit categories (e.g. 面膜) = use once and done
   closeModal('detailModal');
   // Navigate to usage tab
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-usage').classList.add('active');
   document.querySelectorAll('.tab-btn').forEach(b=>{if(b.textContent.includes('使用记录'))b.classList.add('active');});
-  // Pre-fill: must populate select first, then set value, then fill batch
+  // Pre-fill
   populateUsageSelect();
   document.getElementById('uProduct').value=r.productId;
-  fillUsageInfo(); // this populates uBatch dropdown
-  // After fillUsageInfo populates the batch dropdown, set the batch value
+  fillUsageInfo();
   setTimeout(()=>{
     document.getElementById('uBatch').value=rid;
     updateBatchExpiry();
-    document.getElementById('uType').value='start';
+    // For mask/subUnit: pre-select finish (instant use), show finish date field
+    if(isInstantUse){
+      document.getElementById('uType').value='finish';
+    } else {
+      document.getElementById('uType').value='start';
+    }
     toggleUseUntil();
-    document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
+    const today=new Date().toISOString().slice(0,10);
+    document.getElementById('uDate').value=today;
+    if(isInstantUse) document.getElementById('uUseUntil').value=today;
   },80);
   document.querySelector('#tab-usage .card').scrollIntoView({behavior:'smooth'});
-  toast('🧴 已预填批次 '+r.batchCode+'，请确认后点「记录」');
+  const hint=isInstantUse
+    ?`🎭 面膜批次 ${r.batchCode}，已预选「用完一瓶」，确认日期后点「记录」`
+    :`🧴 已预填批次 ${r.batchCode}，请确认后点「记录」`;
+  toast(hint);
 }
 function markBatchFinished(rid){
   const r=db.restocks.find(x=>x.id===rid);if(!r)return;
