@@ -1965,8 +1965,9 @@ function addRestock() {
       id:uuid(),productId:pId,batchCode:giftBatchCode,
       qty:giftQty, paidQty:0, giftQty,
       qtyRemain:arrived==='arrived'?giftQty:0,
-      expiry:giftExpiry||expiry, // use gift expiry if set, else same as paid
+      expiry:giftExpiry||expiry,
       price:'0', origPrice:'0',
+      subUnitQty:parseInt(document.getElementById('subUnitQty').value)||0,
       batchStatus:arrived==='arrived'?'arrived':'transit',
       isGift:true,
       date:commonFields.date,
