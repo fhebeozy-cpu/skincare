@@ -357,7 +357,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
         <input type="date" id="uUseUntil">
       </div>
       <div class="form-group">
-        <label>数量（瓶）</label>
+        <label id="uQtyLabel">数量</label>
         <input type="number" id="uQty" value="1" min="1">
       </div>
       <div class="form-group full">
@@ -1243,6 +1243,7 @@ function renderInventory() {
   document.getElementById('inventoryGrid').innerHTML=prods.map(p=>{
     const st=getStatus(p);
     const bg=statusBadge(st);
+    const cfg=getCategoryConfig(p.category||'');
     const latestR=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='arrived'&&r.expiry).sort((a,b)=>new Date(a.expiry)-new Date(b.expiry))[0];
     const et=expiryText(latestR?.expiry||'');
     const transitCnt=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='transit').reduce((s,r)=>s+r.qty,0);
@@ -1280,9 +1281,9 @@ function renderInventory() {
         ${latestR?.expiry?`<div class="expiry-text ${et.cls}" style="margin-bottom:6px">⏰ 最早到期：${latestR.expiry} ${et.msg}</div>`:''}
         ${batchLines?`<div style="margin-bottom:8px">${batchLines}</div>`:''}
         <div class="product-stats">
-          <div class="pstat"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">库存</div></div>
-          <div class="pstat"><div class="pstat-val" style="${transitCnt>0?'color:#1d4ed8':''}">${transitCnt||0}</div><div class="pstat-lbl">在途</div></div>
-          <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每瓶</div></div>
+          <div class="pstat"><div class="pstat-val">${p.qty}</div><div class="pstat-lbl">库存(${cfg.unit||'件'})</div></div>
+          <div class="pstat"><div class="pstat-val" style="${transitCnt>0?'color:#1d4ed8':''}">${transitCnt||0}</div><div class="pstat-lbl">在途(${cfg.unit||'件'})</div></div>
+          <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每${cfg.unit||'件'}</div></div>
         </div>
         ${avgP?`<div style="font-size:12px;color:var(--text2);margin-top:8px">均价：<strong style="color:var(--accent)">RM ${avgP.toFixed(2)}</strong></div>`:''}
         <div class="product-actions">
@@ -1399,15 +1400,19 @@ function fillUsageInfo() {
   if(!document.getElementById('uDate').value) document.getElementById('uDate').value=new Date().toISOString().slice(0,10);
   const pid=document.getElementById('uProduct').value;
   const batchSel=document.getElementById('uBatch');
-  if(!pid){batchSel.innerHTML='<option value="">— 先选产品 —</option>';updateBatchExpiry();return;}
+  if(!pid){batchSel.innerHTML='<option value="">— 先选产品 —</option>';updateBatchExpiry();document.getElementById('uQtyLabel').textContent='数量';return;}
+  const p=db.products.find(x=>x.id===pid);
+  const cfg=getCategoryConfig(p?.category||'');
+  const unit=cfg.subUnit||cfg.unit||'件';
+  document.getElementById('uQtyLabel').textContent=`数量（${unit}）`;
   const batches=db.restocks.filter(r=>r.productId===pid&&r.arrived==='arrived').sort((a,b)=>new Date(a.date)-new Date(b.date));
   batchSel.innerHTML='<option value="">— 不指定批次 —</option>'+batches.map(r=>{
     const bs=r.batchStatus||r.arrived;
     const statusTxt={arrived:'已到货',in_use:'使用中',finished:'已用完'}[bs]||bs;
     const giftLabel=r.isGift?' 🎁':'';
-    return `<option value="${r.id}">${r.batchCode||r.id.slice(-4)}${giftLabel} · ${r.qty}件${r.expiry?' · 到期'+r.expiry:' · 无截止日期'} [${statusTxt}]</option>`;
+    const qtyDisplay=r.subUnitQty&&cfg.subUnit?`${r.qty}${cfg.unit}(${r.qty*r.subUnitQty}${cfg.subUnit})`:r.qty+cfg.unit;
+    return `<option value="${r.id}">${r.batchCode||r.id.slice(-4)}${giftLabel} · ${qtyDisplay}${r.expiry?' · 到期'+r.expiry:' · 无截止日期'} [${statusTxt}]</option>`;
   }).join('');
-  // auto-select in_use batch if exists
   const inUse=batches.find(r=>r.batchStatus==='in_use');
   if(inUse) batchSel.value=inUse.id;
   updateBatchExpiry();
@@ -1425,7 +1430,11 @@ function updateBatchExpiry(){
   const expiryStr=r.expiry
     ?`⏰ 截止日期：<strong>${r.expiry}</strong>${et.msg?' <span class="'+et.cls+'">'+et.msg+'</span>':''}`
     :'⚠️ 此批次未填截止日期';
-  infoEl.innerHTML=`${r.batchCode}${giftLabel} · ${r.qty}件 · ${expiryStr}`;
+  const p2=db.products.find(x=>x.id===r.productId);
+  const cfg2=getCategoryConfig(p2?.category||'');
+  const unitLabel=cfg2.subUnit||cfg2.unit||'件';
+  const qtyDisplay=r.subUnitQty&&cfg2.subUnit?`${r.qty}${cfg2.unit}（${r.qty*r.subUnitQty}${cfg2.subUnit}）`:r.qty+unitLabel;
+  infoEl.innerHTML=`${r.batchCode}${giftLabel} · ${qtyDisplay} · ${expiryStr}`;
   infoEl.style.display='block';
   infoEl.style.background=r.expiry?(et.cls==='expiry-danger'?'#fff0f0':et.cls==='expiry-warn'?'#fffbeb':'#f0fdf4'):'#fef9f0';
   infoEl.style.borderColor=r.expiry?(et.cls==='expiry-danger'?'#fca5a5':et.cls==='expiry-warn'?'#fde68a':'#a7f3d0'):'#fde68a';
@@ -1699,7 +1708,6 @@ function fillRestockInfo() {
   const p=db.products.find(x=>x.id===id);if(!p)return;
   document.getElementById('restockPrice').value=p.price||'';
   if(!document.getElementById('restockDate').value) document.getElementById('restockDate').value=new Date().toISOString().slice(0,10);
-  // Show sub-unit fields if category has subUnit
   const cfg=getCategoryConfig(p.category||'');
   const subUnitGroup=document.getElementById('subUnitGroup');
   if(cfg.subUnit){
