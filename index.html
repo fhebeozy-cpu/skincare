@@ -1328,10 +1328,14 @@ function calcDuration(pid) {
 }
 
 function calcAvgPrice(pid) {
-  const recs=db.restocks.filter(r=>r.productId===pid && r.arrived==='arrived' && r.price);
+  const recs=db.restocks.filter(r=>r.productId===pid && r.arrived==='arrived' && !r.isGift);
   if(!recs.length) return null;
   const totalQty=recs.reduce((s,r)=>s+r.qty,0);
-  const totalCost=recs.reduce((s,r)=>s+r.qty*(parseFloat(r.price)||0),0);
+  const totalCost=recs.reduce((s,r)=>{
+    // use bundleAvgPrice for bundle items (more accurate — includes gift value)
+    const unitPrice=r.isBundle&&r.bundleAvgPrice?parseFloat(r.bundleAvgPrice):parseFloat(r.price)||0;
+    return s+r.qty*unitPrice;
+  },0);
   return totalQty>0?totalCost/totalQty:null;
 }
 
@@ -1381,7 +1385,11 @@ function renderInventory() {
         const et2=expiryText(r.expiry||'');
         return `<div style="display:flex;align-items:center;gap:6px;padding:5px 8px;border-radius:7px;background:var(--bg);border:1px solid var(--border);margin-bottom:4px;font-size:11px">
           <span class="batch-code" style="font-size:10px">${r.batchCode||'—'}</span>
-          <span style="flex:1;color:var(--text2)">${r.qty}件${r.isGift?' 🎁':''}  · ${r.isGift?'赠品':`RM${parseFloat(r.price||0).toFixed(2)}`}</span>
+          <span style="flex:1;color:var(--text2)">${r.qty}件${r.isGift?' 🎁':''}  · ${
+            r.isGift&&r.bundleAvgPrice?`均价 RM${parseFloat(r.bundleAvgPrice).toFixed(2)}`:
+            r.isBundle&&r.bundleAvgPrice?`均价 RM${parseFloat(r.bundleAvgPrice).toFixed(2)}`:
+            r.price&&parseFloat(r.price)>0?`RM${parseFloat(r.price).toFixed(2)}`:'无价格'
+          }</span>
           ${r.expiry?`<span class="${et2.cls}">⏰${r.expiry}</span>`:'<span style="color:#d97706">无截止</span>'}
           ${r.finishedDate?`<span style="color:#6b7280">✅${r.finishedDate}</span>`:''}
           <span class="batch-status-tag ${bs.cls}" style="padding:1px 6px;font-size:10px">${bs.txt}</span>
@@ -1502,7 +1510,7 @@ function openDetail(id) {
         <div style="font-size:11px;color:var(--text2);margin-top:2px">
           ${priceStr}
           ${saved>0?`<span style="color:#065f46"> · 省 RM${saved.toFixed(2)}</span>`:''}
-          ${r.isBundle?`<span style="color:var(--text3)"> · 套装总价 RM${parseFloat(r.bundlePrice||0).toFixed(2)}</span>`:''}
+          ${r.isBundle?`<span style="color:var(--text3)"> · 总付款 RM${parseFloat(r.bundlePrice||0).toFixed(2)}</span>`:''}
           ${r.expiry?`<span class="${et.cls}"> · ⏰ 截止 ${r.expiry} ${et.msg}</span>`:'<span style="color:#d97706"> · 未填截止日期</span>'}
           ${r.finishedDate?`<span style="color:#6b7280"> · ✅ 实际用完 ${r.finishedDate}</span>`:''}
         </div>
@@ -2225,22 +2233,24 @@ function addRestock() {
     if(platform) savePlatform(platform);
     const commonFields={
       date:document.getElementById('restockDate').value,
-      price:'0',origPrice:'0',platform,arrived, // individual price = 0, total recorded separately
+      platform,arrived,
       promoType:document.getElementById('restockPromoType').value,
       promoValue:document.getElementById('restockPromoValue').value,
       promoName:document.getElementById('restockPromoName').value,
       promoCode:document.getElementById('restockPromoCode').value,
       tiers:[]
     };
-    const bundleNote=`套装购买 · 总价RM${parseFloat(price||0).toFixed(2)}${document.getElementById('restockNote').value?' · '+document.getElementById('restockNote').value:''}`;
+    const bundleNote=`套装购买 · 单价RM${parseFloat(price||0).toFixed(2)}${document.getElementById('restockNote').value?' · '+document.getElementById('restockNote').value:''}`;
     const subUnitQtyVal=parseInt(document.getElementById('subUnitQty').value)||0;
-    // Calculate avg price per item = total price ÷ total qty (paid + gift)
-    const totalBundlePrice=parseFloat(price)||0;
-    const totalBundleQty=items.reduce((s,i)=>s+i.qty,0);
-    const avgPricePerItem=totalBundleQty>0?(totalBundlePrice/totalBundleQty).toFixed(2):'0';
-    // Also calculate per paid-item price
+    // price = per-unit price for paid items
+    const unitPrice=parseFloat(price)||0;
     const paidBundleQty=items.filter(i=>!i.isGift).reduce((s,i)=>s+i.qty,0);
-    const paidPricePerItem=paidBundleQty>0?(totalBundlePrice/paidBundleQty).toFixed(2):'0';
+    const giftBundleQty=items.filter(i=>i.isGift).reduce((s,i)=>s+i.qty,0);
+    const totalBundlePrice=unitPrice*paidBundleQty; // total paid
+    const totalBundleQty=paidBundleQty+giftBundleQty;
+    // avg including gifts = total paid ÷ total qty
+    const avgPricePerItem=totalBundleQty>0?(totalBundlePrice/totalBundleQty).toFixed(2):'0';
+    const paidPricePerItem=unitPrice.toFixed(2);
     const batchCodes=[];
     items.forEach(item=>{
       const bc=genBatchCode(item.pId);
@@ -2253,7 +2263,7 @@ function addRestock() {
         // paid items get paid-only price; gift items get avg (total÷all)
         price:item.isGift?'0':paidPricePerItem,
         origPrice:origPrice||'0',
-        bundlePrice:price,
+        bundlePrice:totalBundlePrice.toFixed(2), // total paid amount
         bundleAvgPrice:avgPricePerItem, // avg including gifts
         subUnitQty:subUnitQtyVal,
         batchStatus:arrived==='arrived'?'arrived':'transit',
