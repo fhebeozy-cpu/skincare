@@ -1140,7 +1140,21 @@ function renderDashInUse(){
     const totalSub=subU&&r.subUnitQty?r.qty*r.subUnitQty:0;
     const remainSub=subU?Math.max(0,totalSub-usedSub):0;
     const et=expiryText(r.expiry||'');
-    const priceDisplay=r.isGift?'🎁 赠品':r.price?`RM${parseFloat(r.price).toFixed(2)}/${mainU}${subU&&r.subUnitQty?` · RM${(parseFloat(r.price)/r.subUnitQty).toFixed(3)}/${subU}`:''}`:avgP?`均价 RM${avgP.toFixed(2)}/${mainU}`:'—';
+    const priceDisplay=(()=>{
+      if(r.isGift){
+        const siblings=db.restocks.filter(x=>x.productId===r.productId&&x.date===r.date&&x.platform===r.platform&&!x.isGift&&x.price);
+        if(siblings.length){
+          const totalPaid=siblings.reduce((s,x)=>s+parseFloat(x.price||0)*x.qty,0);
+          const totalQty=siblings.reduce((s,x)=>s+x.qty,0)+r.qty;
+          const avgPerMain=totalPaid/totalQty;
+          return `🎁 赠品 · 均价 RM${avgPerMain.toFixed(2)}/${mainU}${subU&&r.subUnitQty?` · RM${(avgPerMain/r.subUnitQty).toFixed(3)}/${subU}`:''}`;
+        }
+        return '🎁 赠品';
+      }
+      if(r.price) return `RM${parseFloat(r.price).toFixed(2)}/${mainU}${subU&&r.subUnitQty?` · RM${(parseFloat(r.price)/r.subUnitQty).toFixed(3)}/${subU}`:''}`;
+      if(avgP) return `均价 RM${avgP.toFixed(2)}/${mainU}`;
+      return '—';
+    })();
     return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
       <div style="font-size:22px">${categoryEmoji(p.category)}</div>
       <div style="flex:1;min-width:160px">
@@ -1463,12 +1477,25 @@ function openDetail(id) {
     const saved=r.origPrice&&parseFloat(r.origPrice)>parseFloat(r.price)?(parseFloat(r.origPrice)-parseFloat(r.price))*r.qty:0;
     const qtyDisplay=subU&&r.subUnitQty?`${r.qty}${mainU}（${r.qty*r.subUnitQty}${subU}）`:r.qty+mainU;
     const perSubDisplay=subU&&r.subUnitQty&&r.price?` · 每${subU} RM${(parseFloat(r.price)/r.subUnitQty).toFixed(3)}`:'';
+    // For gift batch: calc avg price = total paid ÷ total qty (paid + gift) on same date+platform
+    const giftAvgPrice=(()=>{
+      if(!r.isGift) return null;
+      const siblings=db.restocks.filter(x=>x.productId===r.productId&&x.date===r.date&&x.platform===r.platform&&!x.isGift&&x.price);
+      if(!siblings.length) return null;
+      const totalPaid=siblings.reduce((s,x)=>s+parseFloat(x.price||0)*x.qty,0);
+      const totalQty=siblings.reduce((s,x)=>s+x.qty,0)+r.qty;
+      const avgPerMain=totalPaid/totalQty;
+      if(subU&&r.subUnitQty) return `均价 RM${avgPerMain.toFixed(2)}/${mainU} · RM${(avgPerMain/r.subUnitQty).toFixed(3)}/${subU}（总价÷总数）`;
+      return `均价 RM${avgPerMain.toFixed(2)}/${mainU}（总价÷总数）`;
+    })();
     return `<div class="batch-row batch-${r.batchStatus||r.arrived}">
       <span class="batch-code">${r.batchCode||'—'}</span>
       <div>
         <div style="font-weight:600">${r.date||'—'} · ${r.platform||'—'} · ${qtyDisplay}${r.isGift?` <span class="discount-tag">🎁 赠品</span>`:''}</div>
         <div style="font-size:11px;color:var(--text2);margin-top:2px">
-          ${r.isGift?'赠品':`单价 RM${parseFloat(r.price||0).toFixed(2)}/每${mainU}${perSubDisplay}`}
+          ${r.isGift
+            ?giftAvgPrice?`<span style="color:var(--accent3)">${giftAvgPrice}</span>`:'赠品'
+            :`单价 RM${parseFloat(r.price||0).toFixed(2)}/每${mainU}${perSubDisplay}`}
           ${saved>0?`<span style="color:#065f46"> · 省 RM${saved.toFixed(2)}</span>`:''}
           ${r.expiry?`<span class="${et.cls}"> · ⏰ 截止 ${r.expiry} ${et.msg}</span>`:'<span style="color:#d97706"> · 未填截止日期</span>'}
           ${r.finishedDate?`<span style="color:#6b7280"> · ✅ 实际用完 ${r.finishedDate}</span>`:''}
