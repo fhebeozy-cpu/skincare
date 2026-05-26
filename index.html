@@ -271,6 +271,12 @@ tr:hover td{background:rgba(196,115,90,.04)}
   <!-- TOP STATS -->
   <div class="dash-grid" id="dashStats"></div>
 
+  <!-- 正在使用的产品 -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title">🧴 正在使用中</div>
+    <div id="dashInUse"></div>
+  </div>
+
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px" id="dashCols">
 
     <!-- 每月消费预估 -->
@@ -1110,10 +1116,50 @@ function renderDashboard() {
   `;
 
   // Monthly cost
+  renderDashInUse();
   renderDashMonthly();
   renderDashAlerts();
   renderDashDuration();
   renderDashPlatform();
+}
+
+function renderDashInUse(){
+  const el=document.getElementById('dashInUse');if(!el)return;
+  const inUseBatches=db.restocks.filter(r=>r.batchStatus==='in_use');
+  if(!inUseBatches.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:13px">暂无正在使用的产品</div>';
+    return;
+  }
+  el.innerHTML=inUseBatches.map(r=>{
+    const p=db.products.find(x=>x.id===r.productId);if(!p)return'';
+    const cfg=getCategoryConfig(p.category||'');
+    const mainU=cfg.unit||'件';
+    const subU=cfg.subUnit||'';
+    const avgP=calcAvgPrice(p.id);
+    const usedSub=subU?db.usages.filter(u=>u.batchId===r.id&&u.type==='finish').reduce((s,u)=>s+u.qty,0):0;
+    const totalSub=subU&&r.subUnitQty?r.qty*r.subUnitQty:0;
+    const remainSub=subU?Math.max(0,totalSub-usedSub):0;
+    const et=expiryText(r.expiry||'');
+    const priceDisplay=r.isGift?'🎁 赠品':r.price?`RM${parseFloat(r.price).toFixed(2)}/${mainU}${subU&&r.subUnitQty?` · RM${(parseFloat(r.price)/r.subUnitQty).toFixed(3)}/${subU}`:''}`:avgP?`均价 RM${avgP.toFixed(2)}/${mainU}`:'—';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="font-size:22px">${categoryEmoji(p.category)}</div>
+      <div style="flex:1;min-width:160px">
+        <div style="font-weight:700;font-size:14px;color:var(--text)">${p.brand} · ${p.name}</div>
+        <div style="font-size:12px;color:var(--text3);margin-top:2px">
+          <span class="batch-code">${r.batchCode}</span>
+          ${r.expiry?` · <span class="${et.cls}">⏰ ${r.expiry}${et.msg?' '+et.msg:''}</span>`:' · 无截止日期'}
+        </div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        ${subU
+          ?`<div style="font-weight:700;font-size:20px;color:var(--accent2)">${remainSub}<span style="font-size:12px;font-weight:400;color:var(--text3)">${subU}</span></div>
+            <div style="font-size:11px;color:var(--text3)">${r.qty}${mainU} · 已用${usedSub}${subU}</div>`
+          :`<div style="font-weight:700;font-size:20px;color:var(--accent)">${r.qty}<span style="font-size:12px;font-weight:400;color:var(--text3)">${mainU}</span></div>`
+        }
+        <div style="font-size:12px;color:var(--text2);margin-top:2px">${priceDisplay}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderDashMonthly() {
