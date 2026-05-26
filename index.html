@@ -777,23 +777,23 @@ tr:hover td{background:rgba(196,115,90,.04)}
     </div>
     <div class="sync-panel">
       <ul class="sync-steps">
-        <li class="sync-step"><div class="step-num">1</div><div class="step-text">前往 <a href="https://jsonbin.io" target="_blank">jsonbin.io</a> → 点右上角 <strong>Sign Up</strong>（Google 一键注册）</div></li>
-        <li class="sync-step"><div class="step-num">2</div><div class="step-text">登入后点右上角头像 → <strong>API Keys</strong> → 复制 <strong>Master Key</strong>（以 <code>$2a$</code> 开头）⚠️ 不是 Access Key</div></li>
-        <li class="sync-step"><div class="step-num">3</div><div class="step-text">填入下方两栏，点「💾 保存设置」。首次使用点「🚀 初始化」创建 Bin；已有 Bin ID 则直接保存即可。</div></li>
+        <li class="sync-step"><div class="step-num">1</div><div class="step-text">打开 <a href="https://github.com/settings/tokens/new" target="_blank">github.com/settings/tokens/new</a>（需要登入）</div></li>
+        <li class="sync-step"><div class="step-num">2</div><div class="step-text">Note 随便填，Expiration 选 <strong>No expiration</strong>，勾选 <strong>repo</strong> 权限，点「Generate token」</div></li>
+        <li class="sync-step"><div class="step-num">3</div><div class="step-text">复制生成的 Token（只显示一次！），填入下方，点「💾 保存设置」。数据会存在你的 GitHub repo 里。</div></li>
       </ul>
       <div class="form-grid">
-        <div class="form-group full"><label>JSONBIN MASTER KEY</label><input type="password" id="syncApiKey" placeholder="$2a$10$..." oninput="saveSyncCredentials()"></div>
-        <div class="form-group full"><label>BIN ID</label><input type="text" id="syncBinId" placeholder="如：6a0ff737ee5a733b12fdc8ac" oninput="saveSyncCredentials()"></div>
+        <div class="form-group full"><label>GitHub Personal Access Token</label><input type="password" id="syncApiKey" placeholder="ghp_xxxxxxxxxxxxxxxxxxxx" oninput="saveSyncCredentials()"></div>
+        <div class="form-group full"><label>GitHub 用户名</label><input type="text" id="syncGhUser" placeholder="如：fhebeozy-cpu" oninput="saveSyncCredentials()"></div>
+        <div class="form-group full"><label>Repository 名称（你放 HTML 的 repo）</label><input type="text" id="syncGhRepo" placeholder="如：skincare" oninput="saveSyncCredentials()"></div>
       </div>
       <div class="sync-btns">
         <button class="btn btn-primary" onclick="saveSyncCredentials();toast('✅ 设置已保存')">💾 保存设置</button>
-        <button class="btn btn-secondary" onclick="syncInit()">🚀 初始化（首次创建）</button>
-        <button class="btn btn-secondary" onclick="syncPush()">→ 推送到云端</button>
-        <button class="btn btn-secondary" onclick="syncPull()">← 从云端拉取</button>
+        <button class="btn btn-secondary" onclick="syncPush()">→ 推送到 GitHub</button>
+        <button class="btn btn-secondary" onclick="syncPull()">← 从 GitHub 拉取</button>
       </div>
     </div>
-    <div class="info-box">💡 免费版每月 10,000 次请求，日常使用完全足够。每次修改数据后会自动推送，打开页面时会自动拉取。</div>
-    <div class="info-box" style="margin-top:8px;background:#fff0f0;border-color:#fca5a5;color:#b91c1c">⚠️ 出现 403 错误？原因通常是：①用了 Access Key 而不是 Master Key ②Bin ID 不属于这个账号。解决方法：重新点「🚀 初始化」用当前 Key 创建新 Bin。</div>
+    <div class="info-box">💡 数据以 <strong>skincare-data.json</strong> 文件存在你的 GitHub repo 里，可以随时下载备份。每次修改后自动推送，打开页面自动拉取。</div>
+    <div class="info-box" style="margin-top:8px;background:#f0fdf4;border-color:#a7f3d0;color:#065f46">✅ GitHub API 完全免费，每小时 5000 次请求，不会有 credit 问题。</div>
   </div>
 </div>
 
@@ -978,14 +978,17 @@ const SKEY = 'skincare_db_v2';
 function init() {
   loadLocal();
   document.getElementById('syncApiKey').value = localStorage.getItem('sc_apiKey')||'';
-  document.getElementById('syncBinId').value  = localStorage.getItem('sc_binId')||'';
+  document.getElementById('syncGhUser').value  = localStorage.getItem('sc_ghUser')||'';
+  document.getElementById('syncGhRepo').value  = localStorage.getItem('sc_ghRepo')||'';
   const today = new Date().toISOString().slice(0,10);
   document.getElementById('restockDate').value = today;
   document.getElementById('uDate').value = today;
-  render(); // render local data immediately
+  render();
   initDealRows();
-  const key = localStorage.getItem('sc_apiKey'), bid = localStorage.getItem('sc_binId');
-  if (key && bid) syncPull(true); else updateSyncDot('grey');
+  const key=localStorage.getItem('sc_apiKey');
+  const user=localStorage.getItem('sc_ghUser');
+  const repo=localStorage.getItem('sc_ghRepo');
+  if(key&&user&&repo) syncPull(true); else updateSyncDot('grey');
 }
 
 function loadLocal() {
@@ -2520,53 +2523,45 @@ function deleteProduct(id){if(!confirm('确定删除？相关所有记录也会�
 // ═══════════════════════════════════════════
 function saveSyncCredentials(){
   const key=document.getElementById('syncApiKey').value.trim();
-  const bid=document.getElementById('syncBinId').value.trim();
+  const user=document.getElementById('syncGhUser').value.trim();
+  const repo=document.getElementById('syncGhRepo').value.trim();
   if(key) localStorage.setItem('sc_apiKey',key);
-  if(bid) localStorage.setItem('sc_binId',bid);
-  if(key&&bid) updateSyncDot('grey');
+  if(user) localStorage.setItem('sc_ghUser',user);
+  if(repo) localStorage.setItem('sc_ghRepo',repo);
+  if(key&&user&&repo) updateSyncDot('grey');
 }
-async function syncInit(){
-  const key=document.getElementById('syncApiKey').value.trim();
-  if(!key){toast('⚠️ 请填写 API Key');return;}
-  saveSyncCredentials();
-  toast('⏳ 正在初始化...');
-  try{
-    const res=await fetch('https://api.jsonbin.io/v3/b',{
-      method:'POST',
-      headers:{'Content-Type':'application/json','X-Master-Key':key,'X-Bin-Name':'SkincareDB','X-Bin-Private':'false'},
-      body:JSON.stringify(db)
-    });
-    const data=await res.json();
-    if(!res.ok){
-      toast(`❌ 初始化失败 (${res.status})：${data.message||'请检查 API Key'}`);return;
-    }
-    if(!data.metadata?.id){toast('❌ 初始化失败，请检查 API Key');return;}
-    localStorage.setItem('sc_apiKey',key);
-    localStorage.setItem('sc_binId',data.metadata.id);
-    document.getElementById('syncBinId').value=data.metadata.id;
-    updateSyncDot('green');
-    toast('✅ 初始化成功！Bin ID: '+data.metadata.id);
-  }catch(e){toast('❌ 网络错误: '+e.message);}
+
+function getGhHeaders(){
+  const key=localStorage.getItem('sc_apiKey');
+  return {'Authorization':'token '+key,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'};
+}
+function getGhFileUrl(){
+  const user=localStorage.getItem('sc_ghUser');
+  const repo=localStorage.getItem('sc_ghRepo');
+  return `https://api.github.com/repos/${user}/${repo}/contents/skincare-data.json`;
 }
 
 async function syncPush(silent=false){
   const key=localStorage.getItem('sc_apiKey');
-  const bid=localStorage.getItem('sc_binId');
-  if(!key||!bid){if(!silent)toast('⚠️ 请先填写 API Key 和 Bin ID 并点「保存设置」');return;}
+  const user=localStorage.getItem('sc_ghUser');
+  const repo=localStorage.getItem('sc_ghRepo');
+  if(!key||!user||!repo){if(!silent)toast('⚠️ 请先填写 Token、用户名和 Repo 名称');return;}
   try{
-    const res=await fetch(`https://api.jsonbin.io/v3/b/${bid}`,{
-      method:'PUT',
-      headers:{'Content-Type':'application/json','X-Master-Key':key},
-      body:JSON.stringify(db)
-    });
-    const data=await res.json();
-    if(!res.ok){
+    let sha=null;
+    const getRes=await fetch(getGhFileUrl(),{headers:getGhHeaders()});
+    if(getRes.ok){const d=await getRes.json();sha=d.sha;}
+    const content=btoa(unescape(encodeURIComponent(JSON.stringify(db))));
+    const body={message:'Update skincare data',content};
+    if(sha) body.sha=sha;
+    const putRes=await fetch(getGhFileUrl(),{method:'PUT',headers:getGhHeaders(),body:JSON.stringify(body)});
+    const data=await putRes.json();
+    if(!putRes.ok){
       updateSyncDot('red');
-      if(!silent)toast(`❌ 推送失败 (${res.status})：${data.message||'请检查 Key 和 Bin ID'}`);
+      if(!silent)toast(`❌ 推送失败 (${putRes.status})：${data.message||'请检查设置'}`);
       return;
     }
     updateSyncDot('green');
-    if(!silent)toast('✅ 已推送到云端');
+    if(!silent)toast('✅ 已推送到 GitHub');
   }catch(e){
     updateSyncDot('red');
     if(!silent)toast('❌ 网络错误: '+e.message);
@@ -2575,38 +2570,46 @@ async function syncPush(silent=false){
 
 async function syncPull(silent=false){
   const key=localStorage.getItem('sc_apiKey');
-  const bid=localStorage.getItem('sc_binId');
-  if(!key||!bid)return;
-  if(!silent)toast('⏳ 从云端拉取中...');
+  const user=localStorage.getItem('sc_ghUser');
+  const repo=localStorage.getItem('sc_ghRepo');
+  if(!key||!user||!repo)return;
+  if(!silent)toast('⏳ 从 GitHub 拉取中...');
   try{
-    const res=await fetch(`https://api.jsonbin.io/v3/b/${bid}/latest`,{
-      headers:{'X-Master-Key':key}
-    });
-    const data=await res.json();
-    if(!res.ok){
-      updateSyncDot('red');
-      document.getElementById('syncLabel').textContent='同步失败';
-      if(!silent)toast(`❌ 拉取失败 (${res.status})：${data.message||'请检查 Key 和 Bin ID'}`);
+    const res=await fetch(getGhFileUrl(),{headers:getGhHeaders()});
+    if(res.status===404){
+      if(!silent)toast('📝 首次使用，正在初始化...');
+      await syncPush(true);
+      updateSyncDot('green');
+      if(!silent)toast('✅ 已初始化，数据已推送到 GitHub');
       return;
     }
-    const cloudDb=Object.assign({products:[],restocks:[],usages:[]},data.record);
+    if(!res.ok){
+      const d=await res.json();
+      updateSyncDot('red');
+      if(!silent)toast(`❌ 拉取失败 (${res.status})：${d.message||'请检查设置'}`);
+      return;
+    }
+    const data=await res.json();
+    const jsonStr=decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
+    const cloudDb=Object.assign({products:[],restocks:[],usages:[]},JSON.parse(jsonStr));
     mergeWithCloud(cloudDb);
     saveLocal();render();
     updateSyncDot('green');
-    if(!silent)toast('✅ 已从云端同步');
+    if(!silent)toast('✅ 已从 GitHub 同步');
     else document.getElementById('syncLabel').textContent='已同步';
     await syncPush(true);
   }catch(e){
     updateSyncDot('red');
     document.getElementById('syncLabel').textContent='同步失败';
-    if(!silent)toast('❌ 网络错误: '+e.message);
+    if(!silent)toast('❌ 错误: '+e.message);
   }
 }
 
 async function autoSync(){
   const key=localStorage.getItem('sc_apiKey');
-  const bid=localStorage.getItem('sc_binId');
-  if(key&&bid) await syncPush(true);
+  const user=localStorage.getItem('sc_ghUser');
+  const repo=localStorage.getItem('sc_ghRepo');
+  if(key&&user&&repo) await syncPush(true);
 }
 function updateSyncDot(s){const d=document.getElementById('syncDot');d.className='sync-dot'+(s==='green'?' ':s==='red'?' red':' grey');document.getElementById('syncLabel').textContent=s==='green'?'已同步':s==='red'?'同步失败':'云端同步';}
 
