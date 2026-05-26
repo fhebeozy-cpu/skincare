@@ -277,6 +277,12 @@ tr:hover td{background:rgba(196,115,90,.04)}
     <div id="dashInUse"></div>
   </div>
 
+  <!-- 补货清单 -->
+  <div class="card" style="margin-bottom:18px">
+    <div class="card-title">🛒 补货清单</div>
+    <div id="dashRestockList"></div>
+  </div>
+
   <!-- 按功效库存列表 -->
   <div class="card" style="margin-bottom:18px">
     <div class="card-title" style="justify-content:space-between">
@@ -1127,11 +1133,61 @@ function renderDashboard() {
 
   // Monthly cost
   renderDashInUse();
+  renderDashRestockList();
   renderDashByFunction();
   renderDashMonthly();
   renderDashAlerts();
   renderDashDuration();
   renderDashPlatform();
+}
+
+function toggleNeedRestock(id){
+  const p=db.products.find(x=>x.id===id);if(!p)return;
+  p.needRestock=!p.needRestock;
+  saveLocal();autoSync();render();
+  toast(p.needRestock?`🛒 已加入补货清单`:`✅ 已从补货清单移除`);
+}
+
+function renderDashRestockList(){
+  const el=document.getElementById('dashRestockList');if(!el)return;
+  const list=db.products.filter(p=>p.needRestock);
+  if(!list.length){
+    el.innerHTML='<div style="color:var(--text3);font-size:13px">暂无待补货产品。在「库存总览」的产品卡片上点「🛒」加入清单。</div>';
+    return;
+  }
+  el.innerHTML=list.map(p=>{
+    const cfg=getCategoryConfig(p.category||'');
+    const unit=cfg.unit||'件';
+    const subU=cfg.subUnit||'';
+    const subPerMain=subU?db.restocks.filter(r=>r.productId===p.id&&r.subUnitQty).map(r=>r.subUnitQty)[0]||0:0;
+    const subQty=subU&&subPerMain?Math.round(p.qty*subPerMain):0;
+    const qtyDisplay=subU&&subQty?`${Number.isInteger(p.qty)?p.qty:p.qty.toFixed(1)}${unit}（${subQty}${subU}）`:`${Number.isInteger(p.qty)?p.qty:p.qty.toFixed(1)}${unit}`;
+    // Last purchase info
+    const lastR=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='arrived'&&!r.isGift).sort((a,b)=>new Date(b.date)-new Date(a.date))[0];
+    const avgP=calcAvgPrice(p.id);
+    const statusColor=p.qty<=0?'#e06b6b':p.qty<=2?'#d97706':'var(--text2)';
+    return `<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap">
+      <div style="font-size:20px">${categoryEmoji(p.category)}</div>
+      <div style="flex:1;min-width:150px">
+        <div style="font-weight:700;font-size:13px">
+          <span style="color:var(--accent);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px">${p.brand}</span>
+          <span style="color:var(--text);margin-left:6px">${p.name}</span>
+          ${p.size?`<span style="color:var(--text3);font-size:11px;margin-left:4px">${p.size}</span>`:''}
+        </div>
+        <div style="font-size:12px;color:var(--text3);margin-top:3px">
+          ${lastR?`上次 ${lastR.date} · ${lastR.platform||'—'} · RM${parseFloat(lastR.price||0).toFixed(2)}/${unit}`:'暂无购买记录'}
+          ${avgP?` · 均价 RM${avgP.toFixed(2)}`:''}
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;flex-shrink:0">
+        <div style="text-align:right">
+          <div style="font-weight:700;font-size:16px;color:${statusColor}">${qtyDisplay}</div>
+          <div style="font-size:11px;color:var(--text3)">当前库存</div>
+        </div>
+        <button class="btn btn-success btn-sm" onclick="toggleNeedRestock('${p.id}')">✅ 已补货</button>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function renderDashByFunction(){
@@ -1503,6 +1559,7 @@ function renderInventory() {
         <div class="product-actions">
           <button class="btn btn-secondary btn-sm" onclick="openDetail('${p.id}')">📊 详情</button>
           <button class="btn btn-secondary btn-sm" onclick="openEdit('${p.id}')">✏️ 编辑</button>
+          <button class="btn ${p.needRestock?'btn-success':'btn-secondary'} btn-sm" onclick="toggleNeedRestock('${p.id}')" title="${p.needRestock?'从补货清单移除':'加入补货清单'}">${p.needRestock?'🛒 补货中':'🛒'}</button>
           <button class="btn btn-danger btn-sm" onclick="deleteProduct('${p.id}')">🗑</button>
         </div>
       </div>
