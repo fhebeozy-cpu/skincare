@@ -2572,7 +2572,10 @@ async function syncPull(silent=false){
   const key=localStorage.getItem('sc_apiKey');
   const user=localStorage.getItem('sc_ghUser');
   const repo=localStorage.getItem('sc_ghRepo');
-  if(!key||!user||!repo)return;
+  if(!key||!user||!repo){
+    if(!silent)toast('⚠️ 请先填写 Token、用户名和 Repo 名称并保存');
+    return;
+  }
   if(!silent)toast('⏳ 从 GitHub 拉取中...');
   try{
     const res=await fetch(getGhFileUrl(),{headers:getGhHeaders()});
@@ -2580,13 +2583,23 @@ async function syncPull(silent=false){
       if(!silent)toast('📝 首次使用，正在初始化...');
       await syncPush(true);
       updateSyncDot('green');
-      if(!silent)toast('✅ 已初始化，数据已推送到 GitHub');
+      toast('✅ 已初始化，数据已推送到 GitHub');
+      return;
+    }
+    if(res.status===401){
+      updateSyncDot('red');
+      toast('❌ Token 无效或已过期，请重新生成');
+      return;
+    }
+    if(res.status===403){
+      updateSyncDot('red');
+      toast('❌ Token 没有 repo 权限，请重新生成时勾选 repo');
       return;
     }
     if(!res.ok){
-      const d=await res.json();
+      const d=await res.json().catch(()=>({}));
       updateSyncDot('red');
-      if(!silent)toast(`❌ 拉取失败 (${res.status})：${d.message||'请检查设置'}`);
+      toast(`❌ 拉取失败 (${res.status})：${d.message||'请检查设置'}`);
       return;
     }
     const data=await res.json();
@@ -2596,12 +2609,12 @@ async function syncPull(silent=false){
     saveLocal();render();
     updateSyncDot('green');
     if(!silent)toast('✅ 已从 GitHub 同步');
-    else document.getElementById('syncLabel').textContent='已同步';
+    else{document.getElementById('syncLabel').textContent='已同步';}
     await syncPush(true);
   }catch(e){
     updateSyncDot('red');
     document.getElementById('syncLabel').textContent='同步失败';
-    if(!silent)toast('❌ 错误: '+e.message);
+    toast('❌ 错误: '+e.message);
   }
 }
 
