@@ -994,6 +994,15 @@ function init() {
 function loadLocal() {
   try { const d=JSON.parse(localStorage.getItem(SKEY)); if(d) db=Object.assign({products:[],restocks:[],usages:[]},d); } catch(e){}
   if (!db.usages) db.usages=[];
+  fixGiftBatchSubUnitQty();
+}
+
+// Auto-fix: gift batches should inherit subUnitQty from paid batches of same product
+function fixGiftBatchSubUnitQty(){
+  db.restocks.filter(r=>r.isGift&&!r.subUnitQty).forEach(giftR=>{
+    const paidR=db.restocks.find(r=>r.productId===giftR.productId&&!r.isGift&&r.subUnitQty);
+    if(paidR) giftR.subUnitQty=paidR.subUnitQty;
+  });
 }
 function saveLocal() { localStorage.setItem(SKEY,JSON.stringify(db)); }
 
@@ -1335,8 +1344,14 @@ function renderInventory() {
         ${batchLines?`<div style="margin-bottom:8px">${batchLines}</div>`:''}
         <div class="product-stats">
           ${cfg.subUnit?(()=>{
-            const subPerMain=db.restocks.filter(r=>r.productId===p.id&&r.subUnitQty).map(r=>r.subUnitQty)[0]||1;
-            const subQty=Math.round(p.qty*subPerMain);
+            const activeBatches=db.restocks.filter(r=>r.productId===p.id&&r.arrived==='arrived'&&r.batchStatus!=='finished');
+            // Sum total subUnits across all active batches; for batches without subUnitQty, use the first known value
+            const defaultSubPerMain=activeBatches.find(r=>r.subUnitQty)?.subUnitQty||1;
+            // count used subUnits
+            const usedSub=db.usages.filter(u=>u.productId===p.id&&u.type==='finish').reduce((s,u)=>s+u.qty,0);
+            // total arrived subUnits
+            const arrivedSub=activeBatches.reduce((s,r)=>s+(r.qty*(r.subUnitQty||defaultSubPerMain)),0);
+            const subQty=Math.max(0,Math.round(arrivedSub-usedSub));
             return `<div class="pstat"><div class="pstat-val">${Number.isInteger(p.qty)?p.qty:p.qty.toFixed(1)}</div><div class="pstat-lbl">库存(${cfg.unit})</div></div>
             <div class="pstat"><div class="pstat-val" style="color:var(--accent2)">${subQty}</div><div class="pstat-lbl">库存(${cfg.subUnit})</div></div>
             <div class="pstat"><div class="pstat-val" style="font-size:13px">${dur?dur+'天':'—'}</div><div class="pstat-lbl">每${cfg.unit}</div></div>`;
@@ -2606,6 +2621,7 @@ async function syncPull(silent=false){
     const jsonStr=decodeURIComponent(escape(atob(data.content.replace(/\n/g,''))));
     const cloudDb=Object.assign({products:[],restocks:[],usages:[]},JSON.parse(jsonStr));
     mergeWithCloud(cloudDb);
+    fixGiftBatchSubUnitQty();
     saveLocal();render();
     updateSyncDot('green');
     if(!silent)toast('✅ 已从 GitHub 同步');
