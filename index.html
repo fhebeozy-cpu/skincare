@@ -490,7 +490,7 @@ tr:hover td{background:rgba(196,115,90,.04)}
         </div>
       </div>
       <div class="form-group">
-        <label>此次单价 (RM)</label>
+        <label id="restockPriceLabel">此次单价 (RM)</label>
         <input type="number" id="restockPrice" placeholder="0.00" step="0.01">
       </div>
       <div class="form-group">
@@ -2255,6 +2255,8 @@ let bundleItemCount=0;
 
 function toggleBundleMode(){
   const on=document.getElementById('bundleMode').checked;
+  const label=document.getElementById('restockPriceLabel');
+  if(label) label.textContent=on?'总付款金额 (RM)':'此次单价 (RM)';
   document.getElementById('bundleItemsGroup').style.display=on?'block':'none';
   // Hide single-product fields when bundle mode is on
   const singleFields=['restockProduct','restockQty','restockGiftQty','restockTotalQty'];
@@ -2333,6 +2335,8 @@ function getBundleItems(){
 }
 
 function resetBundleMode(){
+  const label=document.getElementById('restockPriceLabel');
+  if(label) label.textContent='此次单价 (RM)';
   bundleItemCount=0;
   document.getElementById('bundleItemRows').innerHTML='';
   document.getElementById('bundleSummary').textContent='';
@@ -2375,15 +2379,15 @@ function addRestock() {
     };
     const bundleNote=`套装购买 · 单价RM${parseFloat(price||0).toFixed(2)}${document.getElementById('restockNote').value?' · '+document.getElementById('restockNote').value:''}`;
     const subUnitQtyVal=parseInt(document.getElementById('subUnitQty').value)||0;
-    // price = per-unit price for paid items
-    const unitPrice=parseFloat(price)||0;
+    // price = total paid amount (user fills total, not per-unit)
+    const totalBundlePrice=parseFloat(price)||0;
     const paidBundleQty=items.filter(i=>!i.isGift).reduce((s,i)=>s+i.qty,0);
     const giftBundleQty=items.filter(i=>i.isGift).reduce((s,i)=>s+i.qty,0);
-    const totalBundlePrice=unitPrice*paidBundleQty; // total paid
     const totalBundleQty=paidBundleQty+giftBundleQty;
-    // avg including gifts = total paid ÷ total qty
+    // per paid-item price = total ÷ paid qty
+    const paidPricePerItem=paidBundleQty>0?(totalBundlePrice/paidBundleQty).toFixed(2):'0';
+    // avg including gifts = total ÷ all qty
     const avgPricePerItem=totalBundleQty>0?(totalBundlePrice/totalBundleQty).toFixed(2):'0';
-    const paidPricePerItem=unitPrice.toFixed(2);
     const batchCodes=[];
     items.forEach(item=>{
       const bc=genBatchCode(item.pId);
