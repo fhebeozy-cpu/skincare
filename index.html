@@ -2275,6 +2275,7 @@ function addBundleItem(pId='',qty=1,isGift=false){
     .map(p=>`<option value="${p.id}" ${p.id===pId?'selected':''}>${p.brand} · ${p.name}</option>`).join('');
   const div=document.createElement('div');
   div.className='bundle-item-row';
+  div.style.gridTemplateColumns='2fr 1fr 1fr 1fr auto';
   div.id='bundleItem'+n;
   div.innerHTML=`
     <div class="form-group" style="margin:0">
@@ -2284,6 +2285,10 @@ function addBundleItem(pId='',qty=1,isGift=false){
     <div class="form-group" style="margin:0">
       <label style="font-size:10px">数量</label>
       <input type="number" id="biQty${n}" value="${qty}" min="1" oninput="updateBundleSummary()">
+    </div>
+    <div class="form-group" style="margin:0">
+      <label style="font-size:10px">原价/瓶 (RM)</label>
+      <input type="number" id="biOrigPrice${n}" placeholder="如：168.00" step="0.01">
     </div>
     <div class="form-group" style="margin:0">
       <label style="font-size:10px">类型</label>
@@ -2321,7 +2326,8 @@ function getBundleItems(){
     const pId=document.getElementById('biProduct'+i).value;
     const qty=parseInt(document.getElementById('biQty'+i).value)||1;
     const type=document.getElementById('biType'+i).value;
-    if(pId) items.push({pId,qty,isGift:type==='gift'});
+    const origPrice=document.getElementById('biOrigPrice'+i)?.value||'';
+    if(pId) items.push({pId,qty,isGift:type==='gift',origPrice});
   }
   return items;
 }
@@ -2389,7 +2395,7 @@ function addRestock() {
         expiry,
         // paid items get paid-only price; gift items get avg (total÷all)
         price:item.isGift?'0':paidPricePerItem,
-        origPrice:origPrice||'0',
+        origPrice:item.origPrice||origPrice||'0',
         bundlePrice:totalBundlePrice.toFixed(2), // total paid amount
         bundleAvgPrice:avgPricePerItem, // avg including gifts
         subUnitQty:subUnitQtyVal,
